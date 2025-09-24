@@ -57,9 +57,20 @@ const QuickActions = () => {
     },
   ];
 
+  const actionRoutes: Record<string, string> = {
+    "Đặt lịch hẹn": "/appointment",
+    "Nhắc uống thuốc": "/medication", 
+    "Thông tin y tế": "/information",
+    "Quy trình khám": "/process",
+    "Phản hồi & Khảo sát": "/feedback",
+    "Đa kênh": "/multichannel",
+  };
+
   const handleActionClick = (title: string) => {
-    // Simulate action - would integrate with actual functionality
-    console.log(`Action clicked: ${title}`);
+    const route = actionRoutes[title];
+    if (route) {
+      window.location.href = route;
+    }
   };
 
   return (
