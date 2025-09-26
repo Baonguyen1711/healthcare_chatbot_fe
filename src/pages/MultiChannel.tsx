@@ -140,7 +140,7 @@ const MultiChannel = () => {
                     </Badge>
                   </CardTitle>
                   <p className="text-muted-foreground text-sm">{channel.description}</p>
-                </CardContent>
+                </CardHeader>
                 <CardContent>
                   <div className="space-y-3 mb-6">
                     {channel.features.map((feature, featureIndex) => (
