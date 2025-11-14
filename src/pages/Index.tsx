@@ -1,9 +1,10 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import ChatInterface from "@/components/ChatInterface";
 import QuickActions from "@/components/QuickActions";
-import { MessageCircle, Sparkles, Activity } from "lucide-react";
+import { MessageCircle, Sparkles, Activity, LogIn, UserPlus } from "lucide-react";
 import healthcareHero from "@/assets/healthcare-hero.jpg";
 
 const Index = () => {
@@ -44,6 +45,20 @@ const Index = () => {
                 <Sparkles size={16} className="mr-2" />
                 Tính năng
               </Button>
+              <div className="hidden sm:flex items-center gap-2 ml-2 pl-2 border-l">
+                <Link to="/login">
+                  <Button variant="ghost" size="sm" className="transition-smooth">
+                    <LogIn size={16} className="mr-2" />
+                    Đăng nhập
+                  </Button>
+                </Link>
+                <Link to="/register">
+                  <Button size="sm" className="transition-smooth">
+                    <UserPlus size={16} className="mr-2" />
+                    Đăng ký
+                  </Button>
+                </Link>
+              </div>
             </div>
           </div>
         </div>
