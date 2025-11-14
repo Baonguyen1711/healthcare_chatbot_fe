@@ -11,6 +11,11 @@ import HealthInformation from "./pages/HealthInformation";
 import MedicalProcess from "./pages/MedicalProcess";
 import FeedbackSurvey from "./pages/FeedbackSurvey";
 import MultiChannel from "./pages/MultiChannel";
+import Register from "./pages/Register";
+import ConfirmEmail from "./pages/ConfirmEmail";
+import Login from "./pages/Login";
+import ForgotPassword from "./pages/ForgotPassword";
+import ConfirmForgotPassword from "./pages/ConfirmForgotPassword";
 
 const queryClient = new QueryClient();
 
@@ -28,6 +33,11 @@ const App = () => (
           <Route path="/process" element={<MedicalProcess />} />
           <Route path="/feedback" element={<FeedbackSurvey />} />
           <Route path="/multichannel" element={<MultiChannel />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/confirm-email" element={<ConfirmEmail />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/confirm-forgot-password" element={<ConfirmForgotPassword />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
