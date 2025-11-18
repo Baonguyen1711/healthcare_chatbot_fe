@@ -4,8 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { AuthService } from "@/services/auth";
+import { useNavigate } from "react-router-dom";
 
 const Register = () => {
+  const authService = new AuthService()
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -15,10 +19,35 @@ const Register = () => {
     confirmPassword: "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Logic will be implemented by user
-    console.log("Register form submitted:", formData);
+    try {
+
+      if(formData.password !== formData.confirmPassword) {
+        alert("Passwords do not match!");
+        return;
+      }
+
+      const registerObjecct = {
+        userName: formData.email,
+        email: formData.email,
+        password: formData.password,
+        role: 'USER' as const,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        phone: formData.phone,
+      };
+
+      const response = await authService.registerAccount(registerObjecct);
+
+      if(response.status == 200) {
+        localStorage.setItem("registeredEmail", formData.email);
+        navigate("/confirm-email");
+      }
+      console.log("Registration successful:", response);
+    } catch (error) {
+      console.error("Registration failed:", error);
+    }
   };
 
   return (

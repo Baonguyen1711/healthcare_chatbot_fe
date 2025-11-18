@@ -4,6 +4,5 @@ export interface CreateReminderRequestProps {
         p256dh: string;
         auth: string;
     };
-    userId: string;
     notifyAt: string; // ISO string
 }

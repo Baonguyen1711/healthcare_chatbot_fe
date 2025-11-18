@@ -13,7 +13,7 @@ import { z } from "zod";
 import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import urlBase64ToUint8Array from "@/utils/convertToIntArray";
-import { createReminder } from "@/services/reminder";
+import { ReminderService } from "@/services/reminder";
 
 const medicationSchema = z.object({
   name: z.string().min(1, "Tên thuốc không được để trống"),
@@ -32,6 +32,7 @@ interface Medication extends MedicationForm {
 }
 
 const MedicationReminder = () => {
+  const reminderService = new ReminderService()
   const [medications, setMedications] = useState<Medication[]>([
     {
       id: "1",
@@ -113,7 +114,7 @@ const MedicationReminder = () => {
 
         // new Notification("✅ Notifications enabled!");
 
-        // // 2️⃣ Register the Service Worker
+        // 2️⃣ Register the Service Worker
         // const registration = await navigator.serviceWorker.register("/sw.js");
 
         // console.log("Service Worker registered");
@@ -138,24 +139,12 @@ const MedicationReminder = () => {
         //   },
         // };
         // console.log("Clean Subscription object:", subscriptionData);
-        // await createReminder({
+        // await reminderService.createReminder({
         //   ...subscriptionData,
-        //   userId: "123", // Replace with actual user ID
-        //   notifyAt: "2025-11-06T18:14:00.000Z", // Replace with actual notification time
+        //   notifyAt: "2025-11-17T16:22:00.000Z", // Replace with actual notification time
         // });
 
-        console.log("Push Subscription successful at 2025-11-06T18:14:00.000Z");
-        // 4️⃣ (Optional) Send subscription to your backend
-        // await fetch("/api/set-reminder", {
-        //   method: "POST",
-        //   headers: { "Content-Type": "application/json" },
-        //   body: JSON.stringify({
-        //     endpoint: subscription.endpoint,
-        //     keys: subscription.keys,
-        //     userId: currentUserId,
-        //     notifyAt: selectedTimeISO,
-        //   }),
-        // });
+        // console.log("Push Subscription successful at 2025-11-17T16:22:00.000Z");
 
       } else {
         console.log("Notifications not allowed.");

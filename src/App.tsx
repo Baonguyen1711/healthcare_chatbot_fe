@@ -16,6 +16,7 @@ import ConfirmEmail from "./pages/ConfirmEmail";
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
 import ConfirmForgotPassword from "./pages/ConfirmForgotPassword";
+import ProtectedRoute from "./routes/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -27,12 +28,31 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
-          <Route path="/appointment" element={<AppointmentBooking />} />
-          <Route path="/medication" element={<MedicationReminder />} />
-          <Route path="/information" element={<HealthInformation />} />
-          <Route path="/process" element={<MedicalProcess />} />
-          <Route path="/feedback" element={<FeedbackSurvey />} />
-          <Route path="/multichannel" element={<MultiChannel />} />
+
+          <Route path="/appointment" element={
+            <ProtectedRoute>
+              <AppointmentBooking />
+            </ProtectedRoute>} />
+          <Route path="/medication" element={
+            <ProtectedRoute>
+              <MedicationReminder />
+            </ProtectedRoute>} />
+          <Route path="/information" element={
+            <ProtectedRoute>
+              <HealthInformation />
+            </ProtectedRoute>} />
+          <Route path="/process" element={
+            <ProtectedRoute>
+              <MedicalProcess />
+            </ProtectedRoute>} />
+          <Route path="/feedback" element={
+            <ProtectedRoute>
+              <FeedbackSurvey />
+            </ProtectedRoute>} />
+          <Route path="/multichannel" element={
+            <ProtectedRoute>
+              <MultiChannel />
+            </ProtectedRoute>} />
           <Route path="/register" element={<Register />} />
           <Route path="/confirm-email" element={<ConfirmEmail />} />
           <Route path="/login" element={<Login />} />

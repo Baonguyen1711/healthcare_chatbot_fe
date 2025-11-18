@@ -4,17 +4,41 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { useNavigate } from "react-router-dom";
+import { AuthService } from "@/services/auth";
+import { jwtDecode } from "jwt-decode";
 
 const Login = () => {
+  const authService = new AuthService()
+  
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Logic will be implemented by user
-    console.log("Login form submitted:", formData);
+    try {
+      const response = await authService.signIn({
+        userName: formData.email,
+        password: formData.password,
+      });
+
+      if(response.status == 200) {
+        // Handle successful login, e.g., store tokens, redirect, etc.
+        localStorage.setItem("accessToken", response.data.accessToken);
+        localStorage.setItem("idToken", response.data.idToken);
+        let decoded = jwtDecode(response.data.idToken)
+        console.log("decoded", decoded)
+        localStorage.setItem("userName", decoded["name"])
+
+        navigate("/");
+      }
+      console.log("Login form submitted:", response);
+    } catch (error) {
+      console.error("Error logging in:", error);
+    }
   };
 
   return (
