@@ -12,6 +12,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import urlBase64ToUint8Array from "@/utils/convertToIntArray";
+import { ReminderService } from "@/services/reminder";
 
 const medicationSchema = z.object({
   name: z.string().min(1, "Tên thuốc không được để trống"),
@@ -30,6 +32,7 @@ interface Medication extends MedicationForm {
 }
 
 const MedicationReminder = () => {
+  const reminderService = new ReminderService()
   const [medications, setMedications] = useState<Medication[]>([
     {
       id: "1",
@@ -42,7 +45,7 @@ const MedicationReminder = () => {
       nextDose: "14:00 hôm nay"
     },
     {
-      id: "2", 
+      id: "2",
       name: "Vitamin D3",
       dosage: "1000 IU",
       frequency: "once-day",
@@ -54,7 +57,7 @@ const MedicationReminder = () => {
   ]);
   const [showForm, setShowForm] = useState(false);
   const { toast } = useToast();
-  
+
   const form = useForm<MedicationForm>({
     resolver: zodResolver(medicationSchema),
     defaultValues: {
@@ -81,7 +84,7 @@ const MedicationReminder = () => {
       isActive: true,
       nextDose: calculateNextDose(data.time, data.frequency)
     };
-    
+
     setMedications([...medications, newMedication]);
     setShowForm(false);
     form.reset();
@@ -96,11 +99,68 @@ const MedicationReminder = () => {
     return `${time} hôm nay`;
   };
 
-  const toggleMedication = (id: string) => {
-    setMedications(medications.map(med => 
-      med.id === id ? { ...med, isActive: !med.isActive } : med
-    ));
+  const toggleMedication = async (id: string) => {
+    try {
+      // 1️⃣ Check and request notification permission
+      let permission = Notification.permission;
+
+      if (permission === "default") {
+        permission = await Notification.requestPermission();
+        console.log("User selected:", permission);
+      }
+
+      if (permission === "granted") {
+        // Phần này là để set lời nhắc (lưu ý: cần bật thông báo và tắt chế độ không làm phiền trong setting windows)
+
+        // new Notification("✅ Notifications enabled!");
+
+        // 2️⃣ Register the Service Worker
+        // const registration = await navigator.serviceWorker.register("/sw.js");
+
+        // console.log("Service Worker registered");
+
+        // // 3️⃣ Subscribe to Push
+        // const subscription = await registration.pushManager.subscribe({
+        //   userVisibleOnly: true,
+        //   applicationServerKey: urlBase64ToUint8Array(import.meta.env.VITE_VAPID_PUBLIC_KEY),
+        // });
+
+        // const subscriptionData = {
+        //   endpoint: subscription.endpoint,
+        //   keys: {
+        //     p256dh: btoa(String.fromCharCode.apply(
+        //       null,
+        //       new Uint8Array(subscription.getKey("p256dh"))
+        //     )),
+        //     auth: btoa(String.fromCharCode.apply(
+        //       null,
+        //       new Uint8Array(subscription.getKey("auth"))
+        //     )),
+        //   },
+        // };
+        // console.log("Clean Subscription object:", subscriptionData);
+        // await reminderService.createReminder({
+        //   ...subscriptionData,
+        //   notifyAt: "2025-11-17T16:22:00.000Z", // Replace with actual notification time
+        // });
+
+        // console.log("Push Subscription successful at 2025-11-17T16:22:00.000Z");
+
+      } else {
+        console.log("Notifications not allowed.");
+      }
+
+      // 5️⃣ Toggle medication state in UI
+      setMedications((meds) =>
+        meds.map((med) =>
+          med.id === id ? { ...med, isActive: !med.isActive } : med
+        )
+      );
+    } catch (error) {
+      console.error("Error toggling medication:", error);
+    }
   };
+
 
   const deleteMedication = (id: string) => {
     setMedications(medications.filter(med => med.id !== id));
@@ -344,9 +404,9 @@ const MedicationReminder = () => {
                       <Button type="submit" className="flex-1">
                         Thêm thuốc
                       </Button>
-                      <Button 
-                        type="button" 
-                        variant="outline" 
+                      <Button
+                        type="button"
+                        variant="outline"
                         onClick={() => setShowForm(false)}
                         className="flex-1"
                       >
