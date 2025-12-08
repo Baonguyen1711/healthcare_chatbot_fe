@@ -1,3 +1,4 @@
+import MedicationSchedule from "./pages/MedicationSchedule";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -53,6 +54,7 @@ const App = () => (
             <ProtectedRoute>
               <MultiChannel />
             </ProtectedRoute>} />
+          <Route path="/medication-schedule" element={<MedicationSchedule />} />
           <Route path="/register" element={<Register />} />
           <Route path="/confirm-email" element={<ConfirmEmail />} />
           <Route path="/login" element={<Login />} />
