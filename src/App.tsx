@@ -8,7 +8,7 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import AppointmentBooking from "./pages/AppointmentBooking";
 import MedicationReminder from "./pages/MedicationReminder";
-import HealthInformation from "./pages/HealthInformation";
+import HealthInformation from "./pages/HealthInformation/HealthInformation";
 import MedicalProcess from "./pages/MedicalProcess";
 import FeedbackSurvey from "./pages/FeedbackSurvey";
 import MultiChannel from "./pages/MultiChannel";
@@ -39,9 +39,9 @@ const App = () => (
               <MedicationReminder />
             </ProtectedRoute>} />
           <Route path="/information" element={
-            <ProtectedRoute>
+          
               <HealthInformation />
-            </ProtectedRoute>} />
+           } />
           <Route path="/process" element={
             <ProtectedRoute>
               <MedicalProcess />
