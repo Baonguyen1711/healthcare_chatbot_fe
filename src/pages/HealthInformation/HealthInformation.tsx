@@ -55,7 +55,7 @@ const HealthInformation = () => {
 
   // Fetch featured articles (top 6)
   const { articles: featuredArticles, loading: featuredLoading } =
-    useAllArticles({ limit: 6 });
+    useAllArticles({ limit: 3 });
 
   // Fetch articles based on search/category
   const { articles, loading, error } = useArticles({
