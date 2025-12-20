@@ -19,59 +19,83 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ConfirmForgotPassword from "./pages/ConfirmForgotPassword";
 import BillingTest from "./pages/BillingTest";
 import ProtectedRoute from "./routes/ProtectedRoute";
+import QueueManagement from "./pages/QueueManagement";
 
 const queryClient = new QueryClient();
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
+    <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+                <Routes>
+                    <Route path="/" element={<Index />} />
 
-          <Route path="/appointment" element={
-            <ProtectedRoute>
-              <AppointmentBooking />
-            </ProtectedRoute>} />
-          <Route path="/medication" element={
-            <ProtectedRoute>
-              <MedicationReminder />
-            </ProtectedRoute>} />
-          <Route path="/information" element={
-
-            <HealthInformation />
-          } />
-          <Route path="/process" element={
-
-            <MedicalProcess />
-          } />
-          {/* <Route path="/process" element={
+                    <Route
+                        path="/appointment"
+                        element={
+                            <ProtectedRoute>
+                                <AppointmentBooking />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/medication"
+                        element={
+                            <ProtectedRoute>
+                                <MedicationReminder />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/information"
+                        element={<HealthInformation />}
+                    />
+                    <Route path="/process" element={<MedicalProcess />} />
+                    {/* <Route path="/process" element={
             <ProtectedRoute>
               <MedicalProcess />
             </ProtectedRoute>} /> */}
-          <Route path="/feedback" element={
-            <ProtectedRoute>
-              <FeedbackSurvey />
-            </ProtectedRoute>} />
-          <Route path="/multichannel" element={
-            <ProtectedRoute>
-              <MultiChannel />
-            </ProtectedRoute>} />
-          <Route path="/medication-schedule" element={<MedicationSchedule />} />
-          <Route path="/billing-test" element={<BillingTest />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/confirm-email" element={<ConfirmEmail />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/confirm-forgot-password" element={<ConfirmForgotPassword />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+                    <Route path="/check-in" element={<QueueManagement />} />
+                    <Route
+                        path="/feedback"
+                        element={
+                            <ProtectedRoute>
+                                <FeedbackSurvey />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/multichannel"
+                        element={
+                            <ProtectedRoute>
+                                <MultiChannel />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/medication-schedule"
+                        element={<MedicationSchedule />}
+                    />
+                    <Route path="/billing-test" element={<BillingTest />} />
+                    <Route path="/register" element={<Register />} />
+                    <Route path="/confirm-email" element={<ConfirmEmail />} />
+                    <Route path="/login" element={<Login />} />
+                    <Route
+                        path="/forgot-password"
+                        element={<ForgotPassword />}
+                    />
+                    <Route
+                        path="/confirm-forgot-password"
+                        element={<ConfirmForgotPassword />}
+                    />
+                    {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                    <Route path="*" element={<NotFound />} />
+                </Routes>
+            </BrowserRouter>
+        </TooltipProvider>
+    </QueryClientProvider>
 );
 
 export default App;
