@@ -1,4 +1,4 @@
-const API_BASE_URL = "http://localhost:3000";
+const API_BASE_URL = "https://jcf0kyq6ck.execute-api.us-east-1.amazonaws.com";
 
 export type Article = {
   id: string;
