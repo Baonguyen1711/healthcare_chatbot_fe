@@ -1,25 +1,32 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-import { 
-  ClipboardList, 
-  ArrowLeft, 
-  CheckCircle2, 
-  Clock, 
-  CreditCard, 
-  QrCode, 
-  User, 
+import {
+  ClipboardList,
+  ArrowLeft,
+  CheckCircle2,
+  Clock,
+  CreditCard,
+  QrCode,
+  User,
   FileText,
   MapPin,
-  Phone
+  Phone,
+  Loader2,
+  AlertCircle
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useLatestBill } from "@/hooks/use-billing";
+import { jwtDecode } from "jwt-decode";
 
 const MedicalProcess = () => {
   const [currentStep, setCurrentStep] = useState(2);
+
+  // Fetch billing data từ API (backend tự động lấy userId từ JWT token)
+  const { bill, loading: billLoading, error: billError } = useLatestBill();
 
   const processSteps = [
     {
@@ -70,15 +77,16 @@ const MedicalProcess = () => {
     estimatedTime: "09:45"
   };
 
-  const fees = [
-    { service: "Phí khám bệnh", amount: 150000, covered: 120000 },
-    { service: "Xét nghiệm máu", amount: 200000, covered: 160000 },
-    { service: "Chụp X-quang", amount: 180000, covered: 144000 },
+  // Sử dụng dữ liệu từ API nếu có, nếu không dùng mock data
+  const fees = bill?.services || [
+    { serviceId: "1", serviceName: "Phí khám bệnh", quantity: 1, unitPrice: 150000, totalPrice: 150000 },
+    { serviceId: "2", serviceName: "Xét nghiệm máu", quantity: 1, unitPrice: 200000, totalPrice: 200000 },
+    { serviceId: "3", serviceName: "Chụp X-quang", quantity: 1, unitPrice: 180000, totalPrice: 180000 },
   ];
 
-  const totalFee = fees.reduce((sum, fee) => sum + fee.amount, 0);
-  const totalCovered = fees.reduce((sum, fee) => sum + fee.covered, 0);
-  const patientPay = totalFee - totalCovered;
+  const totalFee = bill?.totalBasePrice || fees.reduce((sum, fee) => sum + fee.totalPrice, 0);
+  const totalCovered = bill?.totalInsuranceCovered || 424000;
+  const patientPay = bill?.totalPatientPay || (totalFee - totalCovered);
 
   const getStepIcon = (step: typeof processSteps[0]) => {
     if (step.status === "completed") return <CheckCircle2 className="text-success" size={24} />;
@@ -197,12 +205,11 @@ const MedicalProcess = () => {
                     </div>
                     <div className="flex-1 pb-4">
                       <div className="flex items-center justify-between mb-1">
-                        <h3 className={`font-semibold ${
-                          step.status === "current" ? "text-primary" : "text-foreground"
-                        }`}>
+                        <h3 className={`font-semibold ${step.status === "current" ? "text-primary" : "text-foreground"
+                          }`}>
                           {step.title}
                         </h3>
-                        <Badge 
+                        <Badge
                           variant={step.status === "completed" ? "default" : "outline"}
                           className={step.status === "current" ? "bg-primary text-primary-foreground" : ""}
                         >
@@ -210,7 +217,7 @@ const MedicalProcess = () => {
                         </Badge>
                       </div>
                       <p className="text-muted-foreground text-sm">{step.description}</p>
-                      
+
                       {step.status === "current" && step.id === 2 && (
                         <div className="mt-4 p-4 bg-primary/5 rounded-lg">
                           <h4 className="font-semibold text-foreground mb-2">Hành động cần thực hiện:</h4>
@@ -271,27 +278,67 @@ const MedicalProcess = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
+              {billLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="animate-spin text-primary mr-3" size={24} />
+                  <span className="text-muted-foreground">Đang tải thông tin viện phí...</span>
+                </div>
+              ) : billError ? (
+                <div className="flex items-center gap-3 p-4 bg-yellow-50 rounded-lg mb-4">
+                  <AlertCircle className="text-yellow-600" size={20} />
+                  <div>
+                    <p className="text-sm text-yellow-800 font-medium">Không thể tải dữ liệu từ API</p>
+                    <p className="text-xs text-yellow-600 mt-1">{billError}</p>
+                    <p className="text-xs text-muted-foreground mt-2">Đang hiển thị dữ liệu mẫu</p>
+                  </div>
+                </div>
+              ) : null}
+
+              {bill && (
+                <div className="mb-4 p-3 bg-green-50 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="text-green-600" size={16} />
+                    <p className="text-sm text-green-800">
+                      Dữ liệu từ {bill.hospitalName} - Ngày khám: {new Date(bill.visitDate).toLocaleDateString('vi-VN')}
+                    </p>
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-4">
                 {fees.map((fee, index) => (
                   <div key={index} className="flex items-center justify-between py-2">
-                    <span className="text-foreground">{fee.service}</span>
+                    <span className="text-foreground">{fee.serviceName || `Dịch vụ ${index + 1}`}</span>
                     <div className="text-right">
                       <p className="font-semibold text-foreground">
-                        {fee.amount.toLocaleString('vi-VN')} ₫
+                        {fee.totalPrice.toLocaleString('vi-VN')} ₫
                       </p>
-                      <p className="text-sm text-success">
-                        BHYT: -{fee.covered.toLocaleString('vi-VN')} ₫
-                      </p>
+                      {fee.quantity && fee.quantity > 1 && (
+                        <p className="text-xs text-muted-foreground">
+                          {fee.quantity} x {fee.unitPrice.toLocaleString('vi-VN')} ₫
+                        </p>
+                      )}
                     </div>
                   </div>
                 ))}
                 <Separator />
-                <div className="flex items-center justify-between font-bold text-lg">
-                  <span className="text-foreground">Bệnh nhân thanh toán:</span>
-                  <span className="text-primary">{patientPay.toLocaleString('vi-VN')} ₫</span>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Tổng chi phí:</span>
+                    <span className="font-semibold text-foreground">{totalFee.toLocaleString('vi-VN')} ₫</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">BHYT chi trả:</span>
+                    <span className="font-semibold text-success">-{totalCovered.toLocaleString('vi-VN')} ₫</span>
+                  </div>
+                  <Separator />
+                  <div className="flex items-center justify-between font-bold text-lg">
+                    <span className="text-foreground">Bệnh nhân thanh toán:</span>
+                    <span className="text-primary">{patientPay.toLocaleString('vi-VN')} ₫</span>
+                  </div>
                 </div>
               </div>
-              
+
               <div className="mt-6 p-4 bg-primary/5 rounded-lg">
                 <h4 className="font-semibold text-foreground mb-2">Phương thức thanh toán:</h4>
                 <div className="grid grid-cols-2 gap-3">
