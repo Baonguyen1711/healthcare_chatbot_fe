@@ -6,40 +6,37 @@ import { Send, Bot, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLatestBill } from "@/hooks/use-billing";
 import { checkBillingQuery, getBillingResponse } from "@/utils/billingChatbot";
-import { useChat } from "@/hooks/useChat";
 
 interface Message {
   id: string;
   text: string;
   sender: "user" | "bot";
   timestamp: Date;
-  billData?: any; // Thêm field để lưu dữ liệu viện phí
+  billData?: any;
 }
 
 const ChatInterface = () => {
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: '1',
+      text: 'Xin chào! Tôi là trợ lý chăm sóc sức khỏe thông minh. Tôi có thể giúp bạn:\n• Đặt lịch hẹn bác sĩ\n• Nhắc uống thuốc\n• Xem thông tin viện phí\n• Cung cấp thông tin y tế\n\nBạn cần hỗ trợ gì hôm nay?',
+      sender: 'bot',
+      timestamp: new Date(),
+    }
+  ]);
   const [inputMessage, setInputMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
 
-  const {
-    messages,
-    loading: isLoading,
-    sendMessage,
-    addBotMessage,
-  } = useChat();
+  // Hook để lấy billing data
+  const { bill, loading: billLoading, error: billError } = useLatestBill();
 
-  useEffect(() => {
-    addBotMessage(
-      "Xin chào! Tôi là trợ lý chăm sóc sức khỏe thông minh. Tôi có thể giúp bạn đặt lịch hẹn, nhắc uống thuốc, cung cấp thông tin y tế và hỗ trợ các vấn đề sức khỏe. Bạn cần hỗ trợ gì hôm nay?"
-    );
-  }, []);
-
+  // Auto scroll to bottom when messages change
   useEffect(() => {
     bottomRef.current?.scrollIntoView({
       behavior: "smooth",
     });
   }, [messages, isLoading]);
-
-  // Hook để lấy billing data
-  const { bill, loading: billLoading, error: billError } = useLatestBill();
 
   const handleSendMessage = async () => {
     if (!inputMessage.trim()) return;
@@ -47,12 +44,12 @@ const ChatInterface = () => {
     const userMessage: Message = {
       id: Date.now().toString(),
       text: inputMessage,
-      sender: 'user',
+      sender: "user",
       timestamp: new Date(),
     };
 
     setMessages(prev => [...prev, userMessage]);
-    setInputMessage('');
+    setInputMessage("");
     setIsLoading(true);
 
     // Kiểm tra xem có phải câu hỏi về viện phí không
@@ -63,7 +60,7 @@ const ChatInterface = () => {
       const botResponse: Message = {
         id: (Date.now() + 1).toString(),
         text: getBotResponse(inputMessage, isBillingQuery),
-        sender: 'bot',
+        sender: "bot",
         timestamp: new Date(),
         billData: isBillingQuery ? bill : undefined,
       };
@@ -80,26 +77,26 @@ const ChatInterface = () => {
       return getBillingResponse(bill, billLoading, billError);
     }
 
-    if (lowerMessage.includes('đặt lịch') || lowerMessage.includes('hẹn bác sĩ')) {
-      return 'Tôi sẽ giúp bạn đặt lịch hẹn với bác sĩ. Bạn muốn đặt lịch cho chuyên khoa nào và thời gian nào? Vui lòng cho biết: Chuyên khoa - Ngày mong muốn - Giờ mong muốn.';
+    if (lowerMessage.includes("đặt lịch") || lowerMessage.includes("hẹn bác sĩ")) {
+      return "Tôi sẽ giúp bạn đặt lịch hẹn với bác sĩ. Bạn muốn đặt lịch cho chuyên khoa nào và thời gian nào? Vui lòng cho biết: Chuyên khoa - Ngày mong muốn - Giờ mong muốn.";
     }
 
-    if (lowerMessage.includes('uống thuốc') || lowerMessage.includes('nhắc thuốc')) {
-      return 'Tôi có thể thiết lập lời nhắc uống thuốc cho bạn. Vui lòng cung cấp thông tin: Tên thuốc - Liều lượng - Thời gian uống (sáng/trưa/chiều/tối) - Thời gian bắt đầu.';
+    if (lowerMessage.includes("uống thuốc") || lowerMessage.includes("nhắc thuốc")) {
+      return "Tôi có thể thiết lập lời nhắc uống thuốc cho bạn. Vui lòng cung cấp thông tin: Tên thuốc - Liều lượng - Thời gian uống (sáng/trưa/chiều/tối) - Thời gian bắt đầu.";
     }
-
-    if (lowerMessage.includes('thông tin') || lowerMessage.includes('bệnh')) {
-      return 'Tôi có thể cung cấp thông tin y tế đáng tin cậy từ WHO, CDC và Bộ Y tế. Bạn muốn tìm hiểu về bệnh gì? Tôi sẽ đưa ra thông tin chính xác và hướng dẫn phù hợp.';
-    }
-
-    return 'Cảm ơn bạn đã liên hệ. Tôi có thể hỗ trợ bạn:\n• Đặt lịch hẹn bác sĩ\n• Thiết lập nhắc uống thuốc\n• Xem thông tin viện phí\n• Cung cấp thông tin y tế\n\nBạn cần hỗ trợ gì cụ thể?';
-  };
 
     if (lowerMessage.includes("thông tin") || lowerMessage.includes("bệnh")) {
       return "Tôi có thể cung cấp thông tin y tế đáng tin cậy từ WHO, CDC và Bộ Y tế. Bạn muốn tìm hiểu về bệnh gì? Tôi sẽ đưa ra thông tin chính xác và hướng dẫn phù hợp.";
     }
 
-    return "Cảm ơn bạn đã liên hệ. Tôi có thể hỗ trợ bạn đặt lịch hẹn bác sĩ, thiết lập nhắc uống thuốc, cung cấp thông tin y tế, hoặc hướng dẫn quy trình khám chữa bệnh. Bạn cần hỗ trợ gì cụ thể?";
+    return "Cảm ơn bạn đã liên hệ. Tôi có thể hỗ trợ bạn:\n• Đặt lịch hẹn bác sĩ\n• Thiết lập nhắc uống thuốc\n• Xem thông tin viện phí\n• Cung cấp thông tin y tế\n\nBạn cần hỗ trợ gì cụ thể?";
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
   };
 
   return (
@@ -116,6 +113,7 @@ const ChatInterface = () => {
           </p>
         </div>
       </div>
+
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((message: Message) => (
@@ -128,29 +126,29 @@ const ChatInterface = () => {
           >
             <div className={cn(
               "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
-              message.sender === 'user'
+              message.sender === "user"
                 ? "bg-primary text-primary-foreground"
                 : "bg-secondary text-foreground"
             )}>
-              {message.sender === 'user' ? <User size={16} /> : <Bot size={16} />}
+              {message.sender === "user" ? <User size={16} /> : <Bot size={16} />}
             </div>
 
             <div className={cn(
               "p-3 rounded-2xl shadow-soft transition-smooth",
-              message.sender === 'user'
+              message.sender === "user"
                 ? "bg-primary text-primary-foreground rounded-br-md"
                 : "bg-card text-card-foreground rounded-bl-md border"
             )}>
               <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.text}</p>
               <span className={cn(
                 "text-xs mt-2 block",
-                message.sender === 'user'
+                message.sender === "user"
                   ? "text-primary-foreground/70"
                   : "text-muted-foreground"
               )}>
-                {message.timestamp.toLocaleTimeString('vi-VN', {
-                  hour: '2-digit',
-                  minute: '2-digit'
+                {message.timestamp.toLocaleTimeString("vi-VN", {
+                  hour: "2-digit",
+                  minute: "2-digit"
                 })}
               </span>
             </div>
