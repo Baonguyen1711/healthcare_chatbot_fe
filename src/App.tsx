@@ -17,6 +17,7 @@ import ConfirmEmail from "./pages/ConfirmEmail";
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
 import ConfirmForgotPassword from "./pages/ConfirmForgotPassword";
+import BillingTest from "./pages/BillingTest";
 import ProtectedRoute from "./routes/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -39,13 +40,17 @@ const App = () => (
               <MedicationReminder />
             </ProtectedRoute>} />
           <Route path="/information" element={
-          
-              <HealthInformation />
-           } />
+
+            <HealthInformation />
+          } />
           <Route path="/process" element={
+
+            <MedicalProcess />
+          } />
+          {/* <Route path="/process" element={
             <ProtectedRoute>
               <MedicalProcess />
-            </ProtectedRoute>} />
+            </ProtectedRoute>} /> */}
           <Route path="/feedback" element={
             <ProtectedRoute>
               <FeedbackSurvey />
@@ -55,6 +60,7 @@ const App = () => (
               <MultiChannel />
             </ProtectedRoute>} />
           <Route path="/medication-schedule" element={<MedicationSchedule />} />
+          <Route path="/billing-test" element={<BillingTest />} />
           <Route path="/register" element={<Register />} />
           <Route path="/confirm-email" element={<ConfirmEmail />} />
           <Route path="/login" element={<Login />} />
