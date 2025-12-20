@@ -1,17 +1,20 @@
-// src/api.ts
-export const API_BASE = "https://63gi6kwvl3.execute-api.us-east-1.amazonaws.com";
-
+export const API_BASE = import.meta.env.VITE_APPOINTMENT_BASE_URL;
 export async function getHospitals() {
-  const res = await fetch(`${API_BASE}/hospitals`);
+  const token = (localStorage.getItem("accessToken") ?? "").trim();
+  const res = await fetch(`${API_BASE}/hospitals`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
   if (!res.ok) throw new Error("Không thể lấy danh sách bệnh viện");
   return res.json();
 }
 
 export async function getDepartmentsByHospital(hospitalId: string) {
+  const token = (localStorage.getItem("accessToken") ?? "").trim();
   const res = await fetch(`${API_BASE}/getDepartmentsByHospitalId`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify({ hospitalId: hospitalId }),
   });
@@ -24,10 +27,12 @@ export async function getDepartmentsByHospital(hospitalId: string) {
 }
 
 export async function getDoctorsByDepartment(departmentId: string) {
+  const token = (localStorage.getItem("accessToken") ?? "").trim();
   const res = await fetch(`${API_BASE}/getDoctorByDepartment`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify({ departmentId: departmentId }),
   });
@@ -40,11 +45,12 @@ export async function getDoctorsByDepartment(departmentId: string) {
 }
 
 export async function getDoctorSchedule(doctorId: string, dateStr: string) {
-
+  const token = (localStorage.getItem("accessToken") ?? "").trim();
   const res = await fetch(`${API_BASE}/doctor/getSchedule`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify({ doctorId: doctorId, date:dateStr}),
   });
@@ -53,11 +59,16 @@ export async function getDoctorSchedule(doctorId: string, dateStr: string) {
 }
 
 export async function bookAppointment(data: any) {
+  const token = (localStorage.getItem("accessToken") ?? "").trim();
   const res = await fetch(`${API_BASE}/appointment`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     body: JSON.stringify(data),
   });
+  console.log(res)
   if (!res.ok) throw new Error("Không thể đặt lịch hẹn");
   return res.json();
 }

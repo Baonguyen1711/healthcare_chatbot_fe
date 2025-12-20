@@ -36,7 +36,7 @@ import { Badge } from "@/components/ui/badge";
 import { addDays, format } from "date-fns";
 import { vi } from "date-fns/locale";
 
-import { getHospitals,getDepartmentsByHospital,getDoctorsByDepartment,getDoctorSchedule,bookAppointment } from "./api";
+import { getHospitals,getDepartmentsByHospital,getDoctorsByDepartment,getDoctorSchedule,bookAppointment } from "../services/appointment-service";
 import { v4 as uuidv4 } from "uuid";
 // 🧾 Validation schema
 const appointmentSchema = z.object({
