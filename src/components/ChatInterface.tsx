@@ -7,6 +7,8 @@ import { cn } from "@/lib/utils";
 import { useLatestBill } from "@/hooks/use-billing";
 import { checkBillingQuery, getBillingResponse } from "@/utils/billingChatbot";
 import { useChat } from "@/hooks/useChat";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface Message {
   id: string;
@@ -32,7 +34,14 @@ const ChatInterface = () => {
 
   useEffect(() => {
     addBotMessage(
-      "Xin chào! Tôi là trợ lý chăm sóc sức khỏe thông minh. Tôi có thể giúp bạn:\n• Đặt lịch hẹn bác sĩ\n• Nhắc uống thuốc\n• Xem thông tin viện phí\n• Cung cấp thông tin y tế\n\nBạn cần hỗ trợ gì hôm nay?"
+      `Xin chào! Tôi là trợ lý chăm sóc sức khỏe thông minh. Tôi có thể giúp bạn:
+
+  - Đặt lịch hẹn bác sĩ
+  - Nhắc uống thuốc
+  - Xem thông tin viện phí
+  - Cung cấp thông tin y tế
+
+  Bạn cần hỗ trợ gì hôm nay?`
     );
   }, []);
 
@@ -53,7 +62,11 @@ const ChatInterface = () => {
       addUserMessage(inputMessage);
 
       // Tạo response về billing
-      const billingResponseText = getBillingResponse(bill, billLoading, billError);
+      const billingResponseText = getBillingResponse(
+        bill,
+        billLoading,
+        billError
+      );
 
       // Thêm response của bot
       addBotMessage(billingResponseText);
@@ -86,11 +99,17 @@ const ChatInterface = () => {
       return "Tôi sẽ giúp bạn đặt lịch hẹn với bác sĩ. Bạn muốn đặt lịch cho chuyên khoa nào và thời gian nào? Vui lòng cho biết: Chuyên khoa - Ngày mong muốn - Giờ mong muốn.";
     }
 
-    if (lowerMessage.includes("đặt lịch") || lowerMessage.includes("hẹn bác sĩ")) {
+    if (
+      lowerMessage.includes("đặt lịch") ||
+      lowerMessage.includes("hẹn bác sĩ")
+    ) {
       return "Tôi sẽ giúp bạn đặt lịch hẹn với bác sĩ. Bạn muốn đặt lịch cho chuyên khoa nào và thời gian nào? Vui lòng cho biết: Chuyên khoa - Ngày mong muốn - Giờ mong muốn.";
     }
 
-    if (lowerMessage.includes("uống thuốc") || lowerMessage.includes("nhắc thuốc")) {
+    if (
+      lowerMessage.includes("uống thuốc") ||
+      lowerMessage.includes("nhắc thuốc")
+    ) {
       return "Tôi có thể thiết lập lời nhắc uống thuốc cho bạn. Vui lòng cung cấp thông tin: Tên thuốc - Liều lượng - Thời gian uống (sáng/trưa/chiều/tối) - Thời gian bắt đầu.";
     }
 
@@ -100,8 +119,6 @@ const ChatInterface = () => {
 
     return "Cảm ơn bạn đã liên hệ. Tôi có thể hỗ trợ bạn:\n• Đặt lịch hẹn bác sĩ\n• Thiết lập nhắc uống thuốc\n• Xem thông tin viện phí\n• Cung cấp thông tin y tế\n\nBạn cần hỗ trợ gì cụ thể?";
   };
-
-
 
   return (
     <Card className="flex flex-col h-[600px] bg-gradient-soft border-0 shadow-medium">
@@ -128,31 +145,59 @@ const ChatInterface = () => {
               message.sender === "user" ? "ml-auto flex-row-reverse" : ""
             )}
           >
-            <div className={cn(
-              "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
-              message.sender === "user"
-                ? "bg-primary text-primary-foreground"
-                : "bg-secondary text-foreground"
-            )}>
-              {message.sender === "user" ? <User size={16} /> : <Bot size={16} />}
+            <div
+              className={cn(
+                "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
+                message.sender === "user"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-foreground"
+              )}
+            >
+              {message.sender === "user" ? (
+                <User size={16} />
+              ) : (
+                <Bot size={16} />
+              )}
             </div>
 
-            <div className={cn(
-              "p-3 rounded-2xl shadow-soft transition-smooth",
-              message.sender === "user"
-                ? "bg-primary text-primary-foreground rounded-br-md"
-                : "bg-card text-card-foreground rounded-bl-md border"
-            )}>
-              <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.text}</p>
-              <span className={cn(
-                "text-xs mt-2 block",
+            <div
+              className={cn(
+                "p-3 rounded-2xl shadow-soft transition-smooth",
                 message.sender === "user"
-                  ? "text-primary-foreground/70"
-                  : "text-muted-foreground"
-              )}>
+                  ? "bg-primary text-primary-foreground rounded-br-md"
+                  : "bg-card text-card-foreground rounded-bl-md border"
+              )}
+            >
+              {message.sender === "bot" ? (
+                <div
+                  className="
+      text-sm leading-relaxed
+      [&_ul]:list-disc
+      [&_ul]:pl-5
+      [&_li]:my-1
+    "
+                >
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {message.text}
+                  </ReactMarkdown>
+                </div>
+              ) : (
+                <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                  {message.text}
+                </p>
+              )}
+
+              <span
+                className={cn(
+                  "text-xs mt-2 block",
+                  message.sender === "user"
+                    ? "text-primary-foreground/70"
+                    : "text-muted-foreground"
+                )}
+              >
                 {message.timestamp.toLocaleTimeString("vi-VN", {
                   hour: "2-digit",
-                  minute: "2-digit"
+                  minute: "2-digit",
                 })}
               </span>
             </div>
