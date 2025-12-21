@@ -6,6 +6,7 @@ import { Send, Bot, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLatestBill } from "@/hooks/use-billing";
 import { checkBillingQuery, getBillingResponse } from "@/utils/billingChatbot";
+import { useChat } from "@/hooks/useChat";
 
 interface Message {
   id: string;
@@ -16,22 +17,25 @@ interface Message {
 }
 
 const ChatInterface = () => {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      text: 'Xin chào! Tôi là trợ lý chăm sóc sức khỏe thông minh. Tôi có thể giúp bạn:\n• Đặt lịch hẹn bác sĩ\n• Nhắc uống thuốc\n• Xem thông tin viện phí\n• Cung cấp thông tin y tế\n\nBạn cần hỗ trợ gì hôm nay?',
-      sender: 'bot',
-      timestamp: new Date(),
-    }
-  ]);
   const [inputMessage, setInputMessage] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const bottomRef = useRef<HTMLDivElement | null>(null);
 
-  // Hook để lấy billing data
+  const {
+    messages,
+    loading: isLoading,
+    sendMessage,
+    addBotMessage,
+    addUserMessage,
+  } = useChat();
+
+  // Billing hook để lấy thông tin viện phí
   const { bill, loading: billLoading, error: billError } = useLatestBill();
 
-  // Auto scroll to bottom when messages change
+  useEffect(() => {
+    addBotMessage(
+      "Xin chào! Tôi là trợ lý chăm sóc sức khỏe thông minh. Tôi có thể giúp bạn:\n• Đặt lịch hẹn bác sĩ\n• Nhắc uống thuốc\n• Xem thông tin viện phí\n• Cung cấp thông tin y tế\n\nBạn cần hỗ trợ gì hôm nay?"
+    );
+  }, []);
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({
       behavior: "smooth",
@@ -41,40 +45,45 @@ const ChatInterface = () => {
   const handleSendMessage = async () => {
     if (!inputMessage.trim()) return;
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      text: inputMessage,
-      sender: "user",
-      timestamp: new Date(),
-    };
-
-    setMessages(prev => [...prev, userMessage]);
-    setInputMessage("");
-    setIsLoading(true);
-
     // Kiểm tra xem có phải câu hỏi về viện phí không
     const isBillingQuery = checkBillingQuery(inputMessage);
 
-    // Simulate bot response
-    setTimeout(() => {
-      const botResponse: Message = {
-        id: (Date.now() + 1).toString(),
-        text: getBotResponse(inputMessage, isBillingQuery),
-        sender: "bot",
-        timestamp: new Date(),
-        billData: isBillingQuery ? bill : undefined,
-      };
-      setMessages(prev => [...prev, botResponse]);
-      setIsLoading(false);
-    }, 1000);
+    if (isBillingQuery) {
+      // Thêm tin nhắn của user
+      addUserMessage(inputMessage);
+
+      // Tạo response về billing
+      const billingResponseText = getBillingResponse(bill, billLoading, billError);
+
+      // Thêm response của bot
+      addBotMessage(billingResponseText);
+      setInputMessage("");
+      return;
+    }
+
+    // Nếu không phải câu hỏi về billing, gọi API chatbot bình thường
+    sendMessage(inputMessage);
+    setInputMessage("");
+  };
+
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
   };
 
   const getBotResponse = (message: string, isBillingQuery: boolean): string => {
     const lowerMessage = message.toLowerCase();
 
     // Xử lý câu hỏi về viện phí
-    if (isBillingQuery) {
-      return getBillingResponse(bill, billLoading, billError);
+    if (
+      lowerMessage.includes("đặt lịch") ||
+      lowerMessage.includes("hẹn bác sĩ")
+    ) {
+      return "Tôi sẽ giúp bạn đặt lịch hẹn với bác sĩ. Bạn muốn đặt lịch cho chuyên khoa nào và thời gian nào? Vui lòng cho biết: Chuyên khoa - Ngày mong muốn - Giờ mong muốn.";
     }
 
     if (lowerMessage.includes("đặt lịch") || lowerMessage.includes("hẹn bác sĩ")) {
@@ -92,12 +101,7 @@ const ChatInterface = () => {
     return "Cảm ơn bạn đã liên hệ. Tôi có thể hỗ trợ bạn:\n• Đặt lịch hẹn bác sĩ\n• Thiết lập nhắc uống thuốc\n• Xem thông tin viện phí\n• Cung cấp thông tin y tế\n\nBạn cần hỗ trợ gì cụ thể?";
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
+
 
   return (
     <Card className="flex flex-col h-[600px] bg-gradient-soft border-0 shadow-medium">

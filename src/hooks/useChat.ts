@@ -27,6 +27,17 @@ export const useChat = () => {
     setMessages((prev) => [...prev, botMessage]);
   };
 
+  const addUserMessage = (text: string) => {
+    const userMessage: ChatMessage = {
+      id: crypto.randomUUID(),
+      text,
+      sender: "user",
+      timestamp: new Date(),
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
+  };
+
   const sendMessage = async (text: string) => {
     if (!text.trim()) return;
 
@@ -65,5 +76,6 @@ export const useChat = () => {
     error,
     sendMessage,
     addBotMessage,
+    addUserMessage,
   };
 };

@@ -36,3 +36,73 @@ export function useLatestBill() {
 
     return { bill, loading, error, refetch: fetchBill };
 }
+
+/**
+ * Hook test - lấy bill của userId U001 (không cần authentication)
+ * Dùng endpoint /billing/test/latest
+ */
+export function useLatestBillTest() {
+    const [bill, setBill] = useState<LatestBillResponse | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const fetchBill = useCallback(async () => {
+        console.log("🚀 useLatestBillTest: Starting fetch...");
+        try {
+            setLoading(true);
+            setError(null);
+            console.log("📡 Calling billingService.getLatestBillTest()...");
+            const response = await billingService.getLatestBillTest();
+            console.log("✅ Response received:", response);
+            console.log("📦 Response data:", response.data);
+            setBill(response.data);
+        } catch (err: any) {
+            console.error("❌ Error in useLatestBillTest:", err);
+            console.error("Error response:", err?.response);
+            const errorMessage = err?.response?.data?.message ||
+                err?.message ||
+                "Đã xảy ra lỗi khi tải thông tin viện phí";
+            setError(errorMessage);
+        } finally {
+            setLoading(false);
+            console.log("🏁 useLatestBillTest: Fetch completed");
+        }
+    }, []);
+
+    return { bill, loading, error, refetch: fetchBill };
+}
+
+/**
+ * @deprecated Sử dụng useLatestBillTest() thay thế
+ * Hook test cho phép truyền userId cố định
+ * Dùng để test API billing với userId tùy chỉnh
+ */
+export function useLatestBillWithUserId(userId: string | null) {
+    const [bill, setBill] = useState<LatestBillResponse | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const fetchBill = useCallback(async () => {
+        if (!userId) {
+            setError("Vui lòng nhập userId để test");
+            return;
+        }
+
+        try {
+            setLoading(true);
+            setError(null);
+            const response = await billingService.getLatestBillByUserId(userId);
+            setBill(response.data);
+        } catch (err: any) {
+            const errorMessage = err?.response?.data?.message ||
+                err?.message ||
+                "Đã xảy ra lỗi khi tải thông tin viện phí";
+            setError(errorMessage);
+            console.error("Failed to fetch latest bill:", err);
+        } finally {
+            setLoading(false);
+        }
+    }, [userId]);
+
+    return { bill, loading, error, refetch: fetchBill };
+}

@@ -1,31 +1,11 @@
-import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { useLatestBillWithUserId } from "@/hooks/use-billing";
-import { jwtDecode } from "jwt-decode";
+import { useLatestBillTest } from "@/hooks/use-billing";
 import { ArrowLeft, Loader2, CheckCircle2, XCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 
-const BillingTest = () => {
-    const [autoUserId, setAutoUserId] = useState<string | null>(null);
-    const [testUserId, setTestUserId] = useState<string>("U001"); // Default test userId
-
-    // Tự động lấy userId từ token để hiển thị
-    useEffect(() => {
-        const idToken = localStorage.getItem("idToken");
-        if (idToken) {
-            try {
-                const decoded: any = jwtDecode(idToken);
-                const extractedUserId = decoded.sub || decoded.userId || decoded["cognito:username"];
-                setAutoUserId(extractedUserId);
-            } catch (error) {
-                console.error("Error decoding token:", error);
-            }
-        }
-    }, []);
-
-    const { bill, loading, error, refetch } = useLatestBillWithUserId(testUserId);
+const BillingTestSimple = () => {
+    const { bill, loading, error, refetch } = useLatestBillTest();
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 p-8">
@@ -39,12 +19,12 @@ const BillingTest = () => {
                     </Button>
                 </div>
 
-                <h1 className="text-3xl font-bold mb-8 text-center">🧪 Test Billing API</h1>
+                <h1 className="text-3xl font-bold mb-8 text-center">🧪 Test Billing API (User U001)</h1>
 
                 {/* Environment Info */}
                 <Card className="mb-6 border-blue-200 bg-blue-50">
                     <CardHeader>
-                        <CardTitle className="text-lg">📋 Thông tin cấu hình</CardTitle>
+                        <CardTitle className="text-lg">📋 Thông tin API</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2 text-sm">
                         <div className="flex justify-between">
@@ -55,19 +35,19 @@ const BillingTest = () => {
                         </div>
                         <div className="flex justify-between">
                             <span className="font-medium">Endpoint:</span>
-                            <code className="bg-white px-2 py-1 rounded">/billing/latest</code>
+                            <code className="bg-white px-2 py-1 rounded">/billing/test/latest</code>
                         </div>
                         <div className="flex justify-between">
-                            <span className="font-medium">Access Token:</span>
-                            <code className="bg-white px-2 py-1 rounded text-xs">
-                                {localStorage.getItem("accessToken") ? "✅ Có" : "❌ Không có"}
-                            </code>
+                            <span className="font-medium">Method:</span>
+                            <code className="bg-white px-2 py-1 rounded">GET</code>
                         </div>
                         <div className="flex justify-between">
-                            <span className="font-medium">User ID (từ token):</span>
-                            <code className="bg-white px-2 py-1 rounded text-xs">
-                                {autoUserId || "❌ Không tìm thấy"}
-                            </code>
+                            <span className="font-medium">Authentication:</span>
+                            <code className="bg-white px-2 py-1 rounded text-green-600">❌ Không cần</code>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="font-medium">Test UserId:</span>
+                            <code className="bg-white px-2 py-1 rounded font-bold">U001</code>
                         </div>
                     </CardContent>
                 </Card>
@@ -75,38 +55,27 @@ const BillingTest = () => {
                 {/* Test Button */}
                 <Card className="mb-6">
                     <CardHeader>
-                        <CardTitle>🎯 Test API Request</CardTitle>
+                        <CardTitle>🎯 Test API</CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="space-y-2">
-                            <label htmlFor="testUserId" className="text-sm font-medium">
-                                User ID để test:
-                            </label>
-                            <Input
-                                id="testUserId"
-                                type="text"
-                                value={testUserId}
-                                onChange={(e) => setTestUserId(e.target.value)}
-                                placeholder="Nhập userId (ví dụ: U001)"
-                                className="font-mono"
-                            />
-                            <p className="text-xs text-muted-foreground">
-                                💡 Mặc định là "U001". Bạn có thể thay đổi để test với userId khác.
-                            </p>
-                        </div>
-
-                        <div className="flex gap-3">
-                            <Button onClick={() => refetch()} disabled={loading || !testUserId} className="flex-1">
-                                {loading ? (
-                                    <>
-                                        <Loader2 className="animate-spin mr-2" size={16} />
-                                        Đang gọi API...
-                                    </>
-                                ) : (
-                                    "🚀 Test API với userId: " + testUserId
-                                )}
-                            </Button>
-                        </div>
+                    <CardContent>
+                        <Button
+                            onClick={() => {
+                                console.log("🔘 Button clicked!");
+                                refetch();
+                            }}
+                            disabled={loading}
+                            className="w-full"
+                            size="lg"
+                        >
+                            {loading ? (
+                                <>
+                                    <Loader2 className="animate-spin mr-2" size={20} />
+                                    Đang gọi API...
+                                </>
+                            ) : (
+                                "🚀 Test API - Lấy bill của User U001"
+                            )}
+                        </Button>
                     </CardContent>
                 </Card>
 
@@ -151,10 +120,9 @@ const BillingTest = () => {
                                     <p className="text-xs font-mono text-gray-700">
                                         <strong>Kiểm tra:</strong><br />
                                         1. VITE_BILLING_BASE_URL đã cấu hình chưa?<br />
-                                        2. Access token có hợp lệ không? (Login lại thử)<br />
-                                        3. userId trong token có tồn tại trong DynamoDB không?<br />
-                                        4. CORS đã được cấu hình chưa?<br />
-                                        5. Xem Network tab trong DevTools (F12)
+                                        2. Server backend đã chạy chưa?<br />
+                                        3. CORS đã được cấu hình chưa?<br />
+                                        4. Xem Network tab trong DevTools (F12)
                                     </p>
                                 </div>
                             </div>
@@ -180,10 +148,6 @@ const BillingTest = () => {
                                             <p className="font-medium">{bill.visitId}</p>
                                         </div>
                                         <div>
-                                            <span className="text-gray-600">Bệnh viện:</span>
-                                            <p className="font-medium">{bill.hospitalName}</p>
-                                        </div>
-                                        <div>
                                             <span className="text-gray-600">Ngày khám:</span>
                                             <p className="font-medium">
                                                 {new Date(bill.visitDate).toLocaleDateString('vi-VN')}
@@ -193,24 +157,62 @@ const BillingTest = () => {
                                             <span className="text-gray-600">Loại BHYT:</span>
                                             <p className="font-medium">{bill.insuranceType}</p>
                                         </div>
-                                        <div>
-                                            <span className="text-gray-600">Số dịch vụ:</span>
-                                            <p className="font-medium">{bill.services.length}</p>
+                                    </div>
+
+                                    {/* Hospital Info */}
+                                    <div className="border-t pt-3 mt-3">
+                                        <h5 className="font-semibold text-gray-700 mb-2">🏥 Thông tin bệnh viện:</h5>
+                                        <div className="space-y-2 text-sm">
+                                            <div>
+                                                <span className="text-gray-600">Bệnh viện:</span>
+                                                <p className="font-medium">{bill.hospitalName}</p>
+                                            </div>
+                                            {bill.hospitalAddress && (
+                                                <div>
+                                                    <span className="text-gray-600">Địa chỉ:</span>
+                                                    <p className="font-medium">{bill.hospitalAddress}</p>
+                                                </div>
+                                            )}
+                                            {bill.doctorName && (
+                                                <div>
+                                                    <span className="text-gray-600">Bác sĩ:</span>
+                                                    <p className="font-medium">{bill.doctorName}</p>
+                                                </div>
+                                            )}
+                                            {bill.department && (
+                                                <div>
+                                                    <span className="text-gray-600">Khoa:</span>
+                                                    <p className="font-medium">{bill.department}</p>
+                                                </div>
+                                            )}
+                                            {bill.diagnosis && (
+                                                <div>
+                                                    <span className="text-gray-600">Chẩn đoán:</span>
+                                                    <p className="font-medium">{bill.diagnosis}</p>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
 
+                                    {/* Services */}
                                     <div className="border-t pt-3 mt-3">
-                                        <h5 className="font-semibold text-gray-700 mb-2">Dịch vụ:</h5>
+                                        <h5 className="font-semibold text-gray-700 mb-2">💊 Dịch vụ ({bill.services?.length || 0}):</h5>
                                         <div className="space-y-2">
-                                            {bill.services.map((service, idx) => (
+                                            {bill.services?.map((service, idx) => (
                                                 <div key={idx} className="flex justify-between text-sm bg-gray-50 p-2 rounded">
-                                                    <span>{service.serviceName}</span>
+                                                    <div>
+                                                        <span className="font-medium">{service.serviceName}</span>
+                                                        {service.quantity > 1 && (
+                                                            <span className="text-gray-500 ml-2">x{service.quantity}</span>
+                                                        )}
+                                                    </div>
                                                     <span className="font-medium">{service.totalPrice.toLocaleString('vi-VN')} ₫</span>
                                                 </div>
                                             ))}
                                         </div>
                                     </div>
 
+                                    {/* Billing Summary */}
                                     <div className="border-t pt-3 mt-3 space-y-2">
                                         <div className="flex justify-between text-sm">
                                             <span className="text-gray-600">Tổng chi phí:</span>
@@ -228,6 +230,33 @@ const BillingTest = () => {
                                         </div>
                                     </div>
 
+                                    {/* Payment Info */}
+                                    {(bill.paymentStatus || bill.paymentMethod) && (
+                                        <div className="border-t pt-3 mt-3">
+                                            <h5 className="font-semibold text-gray-700 mb-2">💳 Thông tin thanh toán:</h5>
+                                            <div className="grid grid-cols-2 gap-2 text-sm">
+                                                {bill.paymentStatus && (
+                                                    <div>
+                                                        <span className="text-gray-600">Trạng thái:</span>
+                                                        <p className="font-medium">
+                                                            <span className={`inline-block px-2 py-1 rounded text-xs ${bill.paymentStatus === 'PAID' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                                                                }`}>
+                                                                {bill.paymentStatus}
+                                                            </span>
+                                                        </p>
+                                                    </div>
+                                                )}
+                                                {bill.paymentMethod && (
+                                                    <div>
+                                                        <span className="text-gray-600">Phương thức:</span>
+                                                        <p className="font-medium">{bill.paymentMethod}</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Note */}
                                     {bill.note && (
                                         <div className="border-t pt-3 mt-3">
                                             <span className="text-gray-600 text-sm">Ghi chú:</span>
@@ -258,26 +287,24 @@ const BillingTest = () => {
                 {/* Instructions */}
                 <Card className="border-purple-200 bg-purple-50">
                     <CardHeader>
-                        <CardTitle className="text-lg">💡 Hướng dẫn test</CardTitle>
+                        <CardTitle className="text-lg">💡 Thông tin</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3 text-sm">
                         <div>
-                            <strong>1. Đảm bảo đã login:</strong>
-                            <p className="text-gray-600 mt-1">
-                                Bạn cần login trước để có JWT token
-                            </p>
+                            <strong>✅ Endpoint test này:</strong>
+                            <ul className="list-disc list-inside text-gray-600 mt-1 space-y-1">
+                                <li>Không cần JWT token</li>
+                                <li>Luôn trả về dữ liệu của userId = U001</li>
+                                <li>Dùng để test nhanh mà không cần đăng nhập</li>
+                            </ul>
                         </div>
                         <div>
-                            <strong>2. Kiểm tra userId trong DynamoDB:</strong>
-                            <p className="text-gray-600 mt-1">
-                                userId từ token ({autoUserId || "N/A"}) phải tồn tại trong table HospitalBills
-                            </p>
-                        </div>
-                        <div>
-                            <strong>3. Xem kết quả:</strong>
-                            <p className="text-gray-600 mt-1">
-                                Nếu thành công sẽ hiển thị dữ liệu viện phí. Nếu lỗi, mở DevTools (F12) để xem chi tiết.
-                            </p>
+                            <strong>🔐 Endpoint chính (/billing/latest):</strong>
+                            <ul className="list-disc list-inside text-gray-600 mt-1 space-y-1">
+                                <li>Yêu cầu JWT token trong Authorization header</li>
+                                <li>Tự động lấy userId từ token</li>
+                                <li>Dùng cho production</li>
+                            </ul>
                         </div>
                     </CardContent>
                 </Card>
@@ -286,4 +313,4 @@ const BillingTest = () => {
     );
 };
 
-export default BillingTest;
+export default BillingTestSimple;
