@@ -7,11 +7,11 @@ export const checkBillingQuery = (message: string): boolean => {
     const lowerMessage = message.toLowerCase();
     const billingKeywords = [
         'viện phí', 'vien phi', 'viện phi', 'chi phí', 'chi phi', 'tiền viện',
-        'hóa đơn', 'hoa don', 'thanh toán', 'thanh toan',
+        'hóa đơn', 'hoa don', 'thanh toán', 'thanh toan', 'thanh toán', 'thanh toan', 'tien phi', 'tien', 'tiền',
         'bill', 'billing', 'payment', 'phí khám', 'phi kham',
         'bao nhiêu tiền', 'giá', 'gia', 'phí', 'phi',
-        'tổng chi phí', 'tong chi phi', 'bệnh viện', 'benh vien',
-        'hospital fee', 'medical bill', 'invoice'
+        'tổng chi phí', 'tong chi phi', 'tổng tiền', 'tong tien',
+        'hospital fee', 'medical bill', 'invoice', 'tien phi', 'phi phi',
     ];
 
     return billingKeywords.some(keyword => lowerMessage.includes(keyword));
@@ -30,8 +30,19 @@ export const getBillingResponse = (
     }
 
     if (billError) {
+        // Kiểm tra xem user đã đăng nhập chưa
+        const isLoggedIn = !!localStorage.getItem("idToken");
 
-        return `❌ Vui lòng đăng nhập để kiểm tra viện phí`;
+        if (isLoggedIn) {
+            // Đã đăng nhập nhưng vẫn lỗi -> Có thể do chưa có dữ liệu hoặc lỗi server
+            if (billError.includes("404") || billError.includes("Không tìm thấy") || billError.includes("chưa có dữ liệu")) {
+                return `ℹ️ Bạn chưa có dữ liệu viện phí nào trong hệ thống.`;
+            }
+            return `❌ Có lỗi xảy ra: ${billError}`;
+        } else {
+            // Chưa đăng nhập
+            return `❌ Vui lòng đăng nhập để kiểm tra viện phí`;
+        }
     }
 
     if (!bill) {
