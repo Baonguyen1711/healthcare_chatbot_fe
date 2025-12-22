@@ -67,21 +67,35 @@ export class QueueService {
         };
 
         const response = await fetch(url, config);
+        const json = await response.json().catch(() => null);
 
         if (!response.ok) {
-            const error = await response.json().catch(() => ({}));
-            throw new Error(
-                error.message || `HTTP error! status: ${response.status}`
+            if (json?.error) {
+                throw new ApiError(
+                    json.error.message || "Có lỗi xảy ra",
+                    json.error.code,
+                    response.status,
+                    json.error.details
+                );
+            }
+
+            throw new ApiError(
+                `HTTP error! status: ${response.status}`,
+                "HTTP_ERROR",
+                response.status
             );
         }
 
-        const result = await response.json();
-
-        if (result.success === false) {
-            throw new Error(result.error || "API request failed");
+        if (json?.success === false) {
+            throw new ApiError(
+                json.error?.message || "API request failed",
+                json.error?.code,
+                response.status,
+                json.error?.details
+            );
         }
 
-        return result;
+        return json as T;
     }
 
     async checkIn(input: CheckInInput): Promise<TicketResponse> {
@@ -115,5 +129,24 @@ export class QueueService {
             }
         );
         return response.data;
+    }
+}
+
+export class ApiError extends Error {
+    code?: string;
+    status?: number;
+    details?: any;
+
+    constructor(
+        message: string,
+        code?: string,
+        status?: number,
+        details?: any
+    ) {
+        super(message);
+        this.name = "ApiError";
+        this.code = code;
+        this.status = status;
+        this.details = details;
     }
 }

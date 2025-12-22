@@ -117,7 +117,6 @@ const QueueManagement = () => {
                 description: "Bạn chưa có số thứ tự nào đang hoạt động",
                 variant: "destructive",
             });
-            setCurrentTicket(null);
         } finally {
             setIsLoading(false);
         }
@@ -500,29 +499,37 @@ const QueueManagement = () => {
                                                         );
                                                     }}
                                                     disabled={isLoading}
-                                                    className="flex items-center gap-2.5 px-4 py-2 rounded-lg bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-all"
+                                                    className="flex items-center gap-2.5 px-4 py-2 rounded-lg bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-all border border-white/30 hover:border-white/50"
                                                 >
-                                                    {currentTicket.queueType ===
-                                                    "BHYT" ? (
-                                                        <Users
-                                                            size={18}
-                                                            className="text-white"
-                                                        />
-                                                    ) : (
-                                                        <Ticket
-                                                            size={18}
-                                                            className="text-white"
-                                                        />
-                                                    )}
-                                                    <span className="text-[15px] mb-0.5 font-medium text-white">
-                                                        {getQueueTypeText(
-                                                            currentTicket.queueType
+                                                    <div className="flex items-center gap-2">
+                                                        {currentTicket.queueType ===
+                                                        "BHYT" ? (
+                                                            <Ticket
+                                                                size={18}
+                                                                className="text-white"
+                                                            />
+                                                        ) : (
+                                                            <Users
+                                                                size={18}
+                                                                className="text-white"
+                                                            />
                                                         )}
-                                                    </span>
-                                                    <ChevronRight
-                                                        size={18}
-                                                        className="text-white/90"
-                                                    />
+                                                        <span className="text-[15px] font-medium text-white">
+                                                            {getQueueTypeText(
+                                                                currentTicket.queueType
+                                                            )}
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-2 ml-2 pl-3 border-l border-white/70">
+                                                        <RefreshCw
+                                                            size={16}
+                                                            className="text-white/90"
+                                                        />
+                                                        <span className="text-[15px] font-medium text-white/90">
+                                                            Đổi
+                                                        </span>
+                                                    </div>
                                                 </button>
 
                                                 <button
