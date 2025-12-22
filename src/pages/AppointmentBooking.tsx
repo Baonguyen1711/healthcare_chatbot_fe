@@ -1,20 +1,44 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar, Clock, User, ArrowLeft, CheckCircle2, Building2, Stethoscope } from "lucide-react";
+import {
+  Calendar,
+  Clock,
+  User,
+  ArrowLeft,
+  CheckCircle2,
+  Building2,
+  Stethoscope,
+} from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
-import { format, addDays } from "date-fns";
+import { addDays, format } from "date-fns";
 import { vi } from "date-fns/locale";
 
+import { getHospitals,getDepartmentsByHospital,getDoctorsByDepartment,getDoctorSchedule,bookAppointment } from "../services/appointment-service";
+import { v4 as uuidv4 } from "uuid";
+// 🧾 Validation schema
 const appointmentSchema = z.object({
   fullName: z.string().min(2, "Họ tên phải có ít nhất 2 ký tự"),
   phone: z.string().min(10, "Số điện thoại không hợp lệ"),
@@ -39,98 +63,172 @@ interface Doctor {
   }[];
 }
 
+interface Department {
+  id: string;
+  name: string;
+  decription?: string;
+  hospitalId: string;
+  doctors: Doctor[];
+}
+
 interface Hospital {
   id: string;
   name: string;
   address: string;
-  doctors: Doctor[];
+  departments: Department[];
 }
 
-const hospitals: Hospital[] = [
-  {
-    id: "bv1",
-    name: "Bệnh viện Đa khoa Trung ương",
-    address: "123 Đường Nguyễn Huệ, Q.1, TP.HCM",
-    doctors: [
-      {
-        id: "bs1",
-        name: "BS. Nguyễn Văn A",
-        department: "Tim mạch",
-        availableSlots: Array.from({ length: 7 }, (_, i) => ({
-          date: format(addDays(new Date(), i), "yyyy-MM-dd"),
-          times: i % 2 === 0 ? ["08:00", "09:00", "10:00", "14:00", "15:00"] : ["08:30", "09:30", "14:30", "15:30"]
-        }))
-      },
-      {
-        id: "bs2",
-        name: "BS. Trần Thị B",
-        department: "Nội khoa",
-        availableSlots: Array.from({ length: 7 }, (_, i) => ({
-          date: format(addDays(new Date(), i), "yyyy-MM-dd"),
-          times: i % 2 === 0 ? ["08:00", "08:30", "09:00", "14:00"] : ["09:00", "10:00", "15:00", "16:00"]
-        }))
-      },
-      {
-        id: "bs3",
-        name: "BS. Lê Văn C",
-        department: "Nhi khoa",
-        availableSlots: Array.from({ length: 7 }, (_, i) => ({
-          date: format(addDays(new Date(), i), "yyyy-MM-dd"),
-          times: ["08:00", "09:00", "10:00", "14:00", "15:00"]
-        }))
-      }
-    ]
-  },
-  {
-    id: "bv2",
-    name: "Phòng khám Đa khoa Gia Đình",
-    address: "456 Lê Lợi, Q.3, TP.HCM",
-    doctors: [
-      {
-        id: "bs4",
-        name: "BS. Phạm Thị D",
-        department: "Da liễu",
-        availableSlots: Array.from({ length: 7 }, (_, i) => ({
-          date: format(addDays(new Date(), i), "yyyy-MM-dd"),
-          times: ["08:00", "09:00", "10:00", "14:00"]
-        }))
-      },
-      {
-        id: "bs5",
-        name: "BS. Hoàng Văn E",
-        department: "Tai mũi họng",
-        availableSlots: Array.from({ length: 7 }, (_, i) => ({
-          date: format(addDays(new Date(), i), "yyyy-MM-dd"),
-          times: i < 5 ? ["08:30", "09:30", "14:30", "15:30"] : []
-        }))
-      }
-    ]
-  },
-  {
-    id: "bv3",
-    name: "Bệnh viện Nhi Đồng 1",
-    address: "789 Trần Hưng Đạo, Q.5, TP.HCM",
-    doctors: [
-      {
-        id: "bs6",
-        name: "BS. Võ Thị F",
-        department: "Nhi khoa",
-        availableSlots: Array.from({ length: 7 }, (_, i) => ({
-          date: format(addDays(new Date(), i), "yyyy-MM-dd"),
-          times: ["08:00", "08:30", "09:00", "09:30", "14:00", "14:30"]
-        }))
-      }
-    ]
-  }
-];
+export interface WorkingHours {
+  start: string;
+  end: string;
+}
+
+export interface DoctorSchedule {
+  doctorId: string;
+  hospitalId: string;
+  date: string;
+  availableSlots: string[];
+  bookedSlots: string[];
+  workingHours: WorkingHours;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface ScheduleByDate {
+  date: string;
+  slots: string[];
+}
 
 const AppointmentBooking = () => {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [selectedHospital, setSelectedHospital] = useState<string>("");
   const [selectedDepartment, setSelectedDepartment] = useState<string>("");
   const [selectedDoctor, setSelectedDoctor] = useState<string>("");
+
+  // 🧠 Sau này có thể truyền `hospitals` từ props hoặc gọi API riêng
+  const [hospitals, setHospitals] = useState<Hospital[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [schedule, setSchedule] = useState<DoctorSchedule | null>(null);
+  const [scheduleWeek, setScheduleWeek] = useState<ScheduleByDate[]>([]);
   const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchHospitals = async () => {
+      try {
+        const data = await getHospitals();
+        const hospitalData: Hospital[] = data.map((item: any) => ({
+          id: item.hospitalId,
+          name: item.name,
+          address: item.address,
+          departments: [],
+        }));
+        console.log('dâd',data)
+        setHospitals(hospitalData); // 👉 res nên là mảng [{id, name, ...}]
+      } catch (err) {
+        console.error("Lỗi khi fetch hospitals:", err);
+      }
+    };
+
+    fetchHospitals();
+  }, []);
+
+
+
+  useEffect(() => {
+    if (!selectedHospital) {
+      setDepartments([]);
+      setSelectedDepartment("");
+      setSelectedDoctor("");
+      return;
+    }
   
+    const fetchDepartments = async () => {
+      try {
+        const data = await getDepartmentsByHospital(selectedHospital);
+        const departmentData: Department[] = data.map((item: any) => ({
+          id: item.departmentId,
+          name: item.name,
+          hospitalId: item.hospitalId,
+          doctors: [],
+        }));
+        console.log(departmentData)
+        setDepartments(departmentData); // ✅ res nên là array [{id, name, ...}]
+      } catch (err) {
+        console.error("Lỗi khi fetch departments:", err);
+        setDepartments([]); // clear khi lỗi
+      }
+    };
+  
+    fetchDepartments();
+  }, [selectedHospital]);
+
+  useEffect(() => {
+    if (!selectedDepartment) {
+      setDoctors([]); // clear khi chưa chọn khoa
+      return;
+    }
+  
+    const fetchDoctors = async () => {
+      try {
+        const data = await getDoctorsByDepartment(selectedDepartment);
+        console.log(data)
+        const doctorData: Doctor[] = data.map((item: any) => ({
+          id: item.doctorId,
+          name: item.name,
+          hospitalId: item.hospitalId
+        }));
+        setDoctors(doctorData);
+      } catch (err) {
+        console.error("Lỗi khi fetch doctors:", err);
+        setDoctors([]); // clear khi lỗi
+      }
+    };
+  
+    fetchDoctors();
+  }, [selectedDepartment]);
+
+  useEffect(() => {
+    if (!selectedDoctor) {
+      setScheduleWeek([]);
+      return;
+    }
+  
+    const fetchScheduleWeek = async () => {
+      try {
+        const today = new Date();
+        const schedules: ScheduleByDate[] = [];
+  
+        for (let i = 1; i <= 2; i++) {
+          const day = addDays(today, i);
+          const dateStr = format(day, "yyyy-MM-dd");
+  
+          try {
+            const data = await getDoctorSchedule(selectedDoctor, dateStr);
+            schedules.push({
+              date: dateStr,
+              slots: data?.availableSlots || [],
+            });
+          } catch (err) {
+            // Nếu ngày đó không có lịch -> vẫn push rỗng để UI hiển thị
+            schedules.push({
+              date: dateStr,
+              slots: [],
+            });
+          }
+        }
+  
+        setScheduleWeek(schedules);
+      } catch (error) {
+        console.error("❌ Lỗi khi fetch lịch tuần:", error);
+        setScheduleWeek([]);
+      }
+    };
+  
+    fetchScheduleWeek();
+  }, [selectedDoctor]);
+  
+
   const form = useForm<AppointmentForm>({
     resolver: zodResolver(appointmentSchema),
     defaultValues: {
@@ -146,38 +244,68 @@ const AppointmentBooking = () => {
     },
   });
 
-  // Get selected hospital data
-  const currentHospital = useMemo(() => 
-    hospitals.find(h => h.id === selectedHospital),
-    [selectedHospital]
+  // 🔸 Lấy hospital hiện tại
+  const currentHospital = useMemo(
+    () => hospitals.find((h) => h.id === selectedHospital),
+    [selectedHospital, hospitals]
   );
 
-  // Get available departments from selected hospital
+  // 🔸 Lấy departments theo hospital
   const availableDepartments = useMemo(() => {
     if (!currentHospital) return [];
-    const depts = [...new Set(currentHospital.doctors.map(d => d.department))];
-    return depts;
+    return currentHospital.departments;
   }, [currentHospital]);
 
-  // Get doctors by selected department
+  // 🔸 Lấy doctors theo department
   const availableDoctors = useMemo(() => {
-    if (!currentHospital || !selectedDepartment) return [];
-    return currentHospital.doctors.filter(d => d.department === selectedDepartment);
+    const dept = currentHospital?.departments.find(
+      (d) => d.id === selectedDepartment
+    );
+    return dept?.doctors || [];
   }, [currentHospital, selectedDepartment]);
 
-  // Get selected doctor data
-  const currentDoctor = useMemo(() => 
-    availableDoctors.find(d => d.id === selectedDoctor),
+  // 🔸 Lấy doctor hiện tại
+  const currentDoctor = useMemo(
+    () => availableDoctors.find((d) => d.id === selectedDoctor),
     [availableDoctors, selectedDoctor]
   );
 
-  const onSubmit = (data: AppointmentForm) => {
-    console.log("Booking appointment:", data);
-    setIsSubmitted(true);
-    toast({
-      title: "Đặt lịch thành công!",
-      description: "Chúng tôi sẽ liên hệ xác nhận trong vòng 30 phút.",
-    });
+  const onSubmit = async (data: AppointmentForm) => {
+    try {
+      const appointmentId = `APPT-${uuidv4()}`;
+      const payload = {
+        appointmentId: appointmentId,
+        patientName: data.fullName,
+        phone: data.phone,
+        email: data.email,
+        hospitalId: selectedHospital,
+        departmentId: selectedDepartment,
+        doctorId: selectedDoctor,
+        date: data.date,
+        time: data.time,
+        symptoms: data.symptoms || "",
+      };
+  
+      console.log("📤 Payload gửi đi:", payload);
+      // 👉 Gọi API tạo lịch hẹn
+      const res = await bookAppointment(payload);
+      console.log(res)
+      console.log("✅ Tạo lịch thành công:", res);
+  
+      toast({
+        title: "Đặt lịch thành công!",
+        description: `Lịch hẹn đã được xác nhận cho ${format(new Date(data.date), "dd/MM/yyyy")} lúc ${data.time}.`,
+      });
+  
+      setIsSubmitted(true);
+    } catch (error) {
+      console.error("❌ Lỗi khi tạo lịch hẹn:", error);
+      toast({
+        title: "Lỗi khi đặt lịch!",
+        description: "Vui lòng thử lại hoặc liên hệ tổng đài hỗ trợ.",
+        variant: "destructive",
+      });
+    }
   };
 
   if (isSubmitted) {
@@ -196,8 +324,8 @@ const AppointmentBooking = () => {
               <Button asChild className="w-full">
                 <Link to="/">Về trang chủ</Link>
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="w-full"
                 onClick={() => setIsSubmitted(false)}
               >
@@ -226,7 +354,9 @@ const AppointmentBooking = () => {
           <div className="text-center mb-8">
             <div className="inline-flex items-center gap-2 mb-4">
               <Calendar className="text-primary" size={32} />
-              <h1 className="text-3xl font-bold text-foreground">Đặt lịch hẹn</h1>
+              <h1 className="text-3xl font-bold text-foreground">
+                Đặt lịch hẹn
+              </h1>
             </div>
             <p className="text-muted-foreground">
               Đặt lịch khám với bác sĩ chuyên khoa nhanh chóng và tiện lợi
@@ -242,15 +372,18 @@ const AppointmentBooking = () => {
             </CardHeader>
             <CardContent>
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                  {/* Hospital Selection */}
+                <form
+                  onSubmit={form.handleSubmit(onSubmit)}
+                  className="space-y-6"
+                >
+                  {/* Hospital */}
                   <FormField
                     control={form.control}
                     name="hospital"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Bệnh viện / Phòng khám *</FormLabel>
-                        <Select 
+                        <Select
                           onValueChange={(value) => {
                             field.onChange(value);
                             setSelectedHospital(value);
@@ -260,7 +393,7 @@ const AppointmentBooking = () => {
                             form.setValue("doctor", "");
                             form.setValue("date", "");
                             form.setValue("time", "");
-                          }} 
+                          }}
                           value={field.value}
                         >
                           <FormControl>
@@ -272,8 +405,12 @@ const AppointmentBooking = () => {
                             {hospitals.map((hospital) => (
                               <SelectItem key={hospital.id} value={hospital.id}>
                                 <div>
-                                  <div className="font-medium">{hospital.name}</div>
-                                  <div className="text-xs text-muted-foreground">{hospital.address}</div>
+                                  <div className="font-medium">
+                                    {hospital.name}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {hospital.address}
+                                  </div>
                                 </div>
                               </SelectItem>
                             ))}
@@ -284,7 +421,7 @@ const AppointmentBooking = () => {
                     )}
                   />
 
-                  {/* Department Selection - Only show when hospital is selected */}
+                  {/* Department */}
                   {selectedHospital && (
                     <FormField
                       control={form.control}
@@ -292,7 +429,7 @@ const AppointmentBooking = () => {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Khoa khám *</FormLabel>
-                          <Select 
+                          <Select
                             onValueChange={(value) => {
                               field.onChange(value);
                               setSelectedDepartment(value);
@@ -309,9 +446,9 @@ const AppointmentBooking = () => {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent className="bg-background">
-                              {availableDepartments.map((dept) => (
-                                <SelectItem key={dept} value={dept}>
-                                  {dept}
+                              {departments.map((dept) => (
+                                <SelectItem key={dept.id} value={dept.id}>
+                                  {dept.name}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -322,15 +459,15 @@ const AppointmentBooking = () => {
                     />
                   )}
 
-                  {/* Doctor Selection - Only show when department is selected */}
-                  {selectedDepartment && availableDoctors.length > 0 && (
+                  {/* Doctor */}
+                  {selectedDepartment && doctors.length > 0 && (
                     <FormField
                       control={form.control}
                       name="doctor"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Bác sĩ *</FormLabel>
-                          <Select 
+                          <Select
                             onValueChange={(value) => {
                               field.onChange(value);
                               setSelectedDoctor(value);
@@ -345,10 +482,13 @@ const AppointmentBooking = () => {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent className="bg-background">
-                              {availableDoctors.map((doctor) => (
+                              {doctors.map((doctor) => (
                                 <SelectItem key={doctor.id} value={doctor.id}>
                                   <div className="flex items-center gap-2">
-                                    <Stethoscope size={16} className="text-primary" />
+                                    <Stethoscope
+                                      size={16}
+                                      className="text-primary"
+                                    />
                                     {doctor.name}
                                   </div>
                                 </SelectItem>
@@ -361,51 +501,62 @@ const AppointmentBooking = () => {
                     />
                   )}
 
-                  {/* Available Slots - Show when doctor is selected */}
-                  {currentDoctor && (
+                  {/* Slots */}
+                  {selectedDoctor && (
                     <Card className="border-primary/20 bg-primary-light/5">
                       <CardHeader>
                         <CardTitle className="text-base flex items-center gap-2">
                           <Calendar size={18} className="text-primary" />
-                          Lịch trống trong tuần ({currentDoctor.name})
+                          Lịch trống trong tuần 
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
                         <div className="space-y-3">
-                          {currentDoctor.availableSlots.map((slot) => {
-                            const slotDate = new Date(slot.date);
-                            const hasSlots = slot.times.length > 0;
-                            
+                          {scheduleWeek.map((scheduleDay) => {
+                            const slotDate = new Date(scheduleDay.date);
+                            const hasSlots = scheduleDay.slots.length > 0;
+
                             return (
-                              <div key={slot.date} className="border rounded-lg p-3">
+                              <div
+                                key={scheduleDay.date}
+                                className="border rounded-lg p-3"
+                              >
                                 <div className="flex items-center justify-between mb-2">
                                   <div>
                                     <div className="font-semibold text-foreground">
-                                      {format(slotDate, "EEEE, dd/MM", { locale: vi })}
+                                      {format(slotDate, "EEEE, dd/MM", {
+                                        locale: vi,
+                                      })}
                                     </div>
                                     <div className="text-xs text-muted-foreground">
                                       {format(slotDate, "yyyy")}
                                     </div>
                                   </div>
                                   {hasSlots ? (
-                                    <Badge variant="default">{slot.times.length} slot</Badge>
+                                    <Badge variant="default">
+                                      {scheduleDay.slots.length} slot
+                                    </Badge>
                                   ) : (
                                     <Badge variant="secondary">Hết chỗ</Badge>
                                   )}
                                 </div>
                                 {hasSlots && (
                                   <div className="flex flex-wrap gap-2">
-                                    {slot.times.map((time) => {
-                                      const isSelected = form.watch("date") === slot.date && form.watch("time") === time;
+                                    {scheduleDay.slots.map((time) => {
+                                      const isSelected =
+                                        form.watch("date") === scheduleDay.date &&
+                                        form.watch("time") === time;
                                       return (
                                         <Button
                                           key={time}
                                           type="button"
                                           size="sm"
-                                          variant={isSelected ? "default" : "outline"}
+                                          variant={
+                                            isSelected ? "default" : "outline"
+                                          }
                                           className="h-8"
                                           onClick={() => {
-                                            form.setValue("date", slot.date);
+                                            form.setValue("date", scheduleDay.date);
                                             form.setValue("time", time);
                                           }}
                                         >
@@ -424,7 +575,7 @@ const AppointmentBooking = () => {
                     </Card>
                   )}
 
-                  {/* Hidden fields for date and time (required for validation) */}
+                  {/* Hidden date & time */}
                   <FormField
                     control={form.control}
                     name="date"
@@ -450,6 +601,7 @@ const AppointmentBooking = () => {
                     )}
                   />
 
+                  {/* Contact */}
                   <div className="border-t pt-6">
                     <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
                       <User size={20} className="text-primary" />
@@ -464,7 +616,10 @@ const AppointmentBooking = () => {
                             <FormItem>
                               <FormLabel>Họ và tên *</FormLabel>
                               <FormControl>
-                                <Input placeholder="Nhập họ và tên" {...field} />
+                                <Input
+                                  placeholder="Nhập họ và tên"
+                                  {...field}
+                                />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -492,7 +647,11 @@ const AppointmentBooking = () => {
                           <FormItem>
                             <FormLabel>Email *</FormLabel>
                             <FormControl>
-                              <Input type="email" placeholder="example@email.com" {...field} />
+                              <Input
+                                type="email"
+                                placeholder="example@email.com"
+                                {...field}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -506,10 +665,10 @@ const AppointmentBooking = () => {
                           <FormItem>
                             <FormLabel>Triệu chứng (tùy chọn)</FormLabel>
                             <FormControl>
-                              <Textarea 
+                              <Textarea
                                 placeholder="Mô tả ngắn gọn triệu chứng hoặc lý do khám"
                                 className="min-h-[100px]"
-                                {...field} 
+                                {...field}
                               />
                             </FormControl>
                             <FormMessage />
@@ -519,9 +678,9 @@ const AppointmentBooking = () => {
                     </div>
                   </div>
 
-                  <Button 
-                    type="submit" 
-                    className="w-full" 
+                  <Button
+                    type="submit"
+                    className="w-full"
                     size="lg"
                     disabled={!form.watch("date") || !form.watch("time")}
                   >
@@ -530,18 +689,6 @@ const AppointmentBooking = () => {
                   </Button>
                 </form>
               </Form>
-            </CardContent>
-          </Card>
-
-          <Card className="mt-6 border-0 bg-primary-light/5">
-            <CardContent className="p-6">
-              <h3 className="font-semibold text-foreground mb-3">Lưu ý quan trọng:</h3>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li>• Vui lòng đến trước giờ hẹn 15 phút để làm thủ tục</li>
-                <li>• Mang theo CMND/CCCD và thẻ bảo hiểm y tế (nếu có)</li>
-                <li>• Liên hệ hotline 1900-xxx để thay đổi lịch hẹn</li>
-                <li>• Phí khám sẽ được thông báo khi xác nhận lịch hẹn</li>
-              </ul>
             </CardContent>
           </Card>
         </div>
