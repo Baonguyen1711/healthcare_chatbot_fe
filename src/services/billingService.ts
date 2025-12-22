@@ -6,13 +6,12 @@ import { LatestBillResponse } from '@/types/Response/Billing';
 // Hardcoded base URL - thay đổi URL này nếu cần
 const BILLING_BASE_URL = "https://v04jpxqxm3.execute-api.us-east-1.amazonaws.com/dev";
 
+
 export class BillingService {
     private baseUrl: string;
-    private accessToken: string | null;
 
     constructor() {
         this.baseUrl = BILLING_BASE_URL;
-        this.accessToken = localStorage.getItem("accessToken");
     }
 
     /**
@@ -21,23 +20,34 @@ export class BillingService {
      * @returns Promise với thông tin viện phí mới nhất
      */
     getLatestBill = async () => {
-        if (!this.accessToken) {
-            throw new Error("Access token not found. Please login first.");
+        const token = (localStorage.getItem("idToken") ?? "").trim();
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+        try {
+            const res = await fetch(`${this.baseUrl}${BILLING_ENDPOINTS.GET_LATEST_BILL}`, {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json",
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+
+            if (!res.ok) {
+                const error = await res.json().catch(() => ({}));
+                throw new Error(error.message || `Lỗi server: ${res.status}`);
+            }
+
+            const data = await res.json();
+            return { data, status: res.status };
+        } catch (error: any) {
+            if (error.name === 'AbortError') {
+                throw new Error("Kết nối quá thời gian chờ (Timeout). Vui lòng thử lại.");
+            }
+            throw error;
         }
-
-        const api = axios.create({
-            baseURL: this.baseUrl,
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${this.accessToken}`,
-            },
-        });
-
-        const response = await api.get<LatestBillResponse>(
-            BILLING_ENDPOINTS.GET_LATEST_BILL
-        );
-
-        return response;
     };
 
     /**
@@ -73,7 +83,8 @@ export class BillingService {
      * @returns Promise với thông tin viện phí mới nhất
      */
     getLatestBillByUserId = async (userId: string) => {
-        if (!this.accessToken) {
+        const accessToken = localStorage.getItem("idToken");
+        if (!accessToken) {
             throw new Error("Access token not found. Please login first.");
         }
 
@@ -81,8 +92,7 @@ export class BillingService {
             this.baseUrl,
             BILLING_ENDPOINTS.GET_LATEST_BILL,
             { userId }, // Truyền userId vào body để test
-            { token: this.accessToken }
+            { token: accessToken }
         );
     };
 }
-

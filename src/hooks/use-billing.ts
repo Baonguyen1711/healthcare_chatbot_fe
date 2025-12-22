@@ -20,11 +20,21 @@ export function useLatestBill() {
             const response = await billingService.getLatestBill();
             setBill(response.data);
         } catch (err: any) {
-            const errorMessage = err?.response?.data?.message ||
-                err?.message ||
-                "Đã xảy ra lỗi khi tải thông tin viện phí";
+            console.error("❌ Failed to fetch latest bill:", err);
+            console.error("Error details:", {
+                status: err?.response?.status,
+                message: err?.response?.data?.message,
+                detail: err?.response?.data?.detail,
+            });
+
+            // Error thrown from service is now a standard Error object with message
+            const errorMessage = err.message || "Đã xảy ra lỗi khi tải thông tin viện phí";
+            console.error("❌ Billing Error:", errorMessage);
+
+            // Tự động detect lỗi dựa trên nội dung message (đã được format từ service hoặc server)
+            // Ví dụ: "HTTP 404: Not Found" hoặc "Access token not found"
+
             setError(errorMessage);
-            console.error("Failed to fetch latest bill:", err);
         } finally {
             setLoading(false);
         }

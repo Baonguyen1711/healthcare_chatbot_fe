@@ -50,7 +50,7 @@ const App = () => (
                         }
                     />
                     <Route path="/information" element={<HealthInformation />} />
-                    <Route path="/process" element={<MedicalProcess />} />
+                    <Route path="/process" element={<ProtectedRoute><MedicalProcess /></ProtectedRoute>} />
                     <Route path="/check-in" element={<QueueManagement />} />
                     <Route
                         path="/feedback"

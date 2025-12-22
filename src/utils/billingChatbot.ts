@@ -30,7 +30,8 @@ export const getBillingResponse = (
     }
 
     if (billError) {
-        return `❌ Không thể lấy thông tin viện phí: ${billError}\n\nVui lòng đảm bảo bạn đã đăng nhập và có dữ liệu viện phí trong hệ thống.`;
+
+        return `❌ Vui lòng đăng nhập để kiểm tra viện phí`;
     }
 
     if (!bill) {

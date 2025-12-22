@@ -339,17 +339,15 @@ const MedicalProcess = () => {
                 </div>
               </div>
 
-              <div className="mt-6 p-4 bg-primary/5 rounded-lg">
-                <h4 className="font-semibold text-foreground mb-2">Phương thức thanh toán:</h4>
-                <div className="grid grid-cols-2 gap-3">
-                  <Button variant="outline" className="flex items-center gap-2">
-                    <CreditCard size={16} />
-                    Thẻ ATM/Credit
-                  </Button>
-                  <Button variant="outline" className="flex items-center gap-2">
-                    <QrCode size={16} />
-                    QR Code
-                  </Button>
+              <div className="mt-6 p-4 bg-green-50 rounded-lg border border-green-100">
+                <div className="flex items-center gap-4">
+                  <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                    <CheckCircle2 className="text-green-600" size={24} />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-green-800 text-lg">Đã thanh toán</h4>
+                    <p className="text-sm text-green-600">Hóa đơn này đã được thanh toán đầy đủ</p>
+                  </div>
                 </div>
               </div>
             </CardContent>
