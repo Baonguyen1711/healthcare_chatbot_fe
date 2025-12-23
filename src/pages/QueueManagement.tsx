@@ -70,7 +70,7 @@ const QueueManagement = () => {
     const form = useForm<CheckInForm>({
         resolver: zodResolver(checkInSchema),
         defaultValues: {
-            fullName: "",
+            fullName: localStorage.getItem("userName") || "",
             phoneNumber: "",
             nationalId: "",
             queueType: undefined,

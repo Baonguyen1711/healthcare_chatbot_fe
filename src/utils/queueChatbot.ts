@@ -359,11 +359,6 @@ const applyUserAnswerToNeed = (
 
     const need = context.need;
 
-    if (need === "fullName") {
-        const fullName = extractFullName(message);
-        return fullName ? { ...context, fullName, need: null } : context;
-    }
-
     if (need === "phoneNumber") {
         const phoneNumber = extractPhoneNumber(message);
         return phoneNumber ? { ...context, phoneNumber, need: null } : context;
@@ -421,13 +416,6 @@ const wrap = (
 // =========================
 // Handlers
 // =========================
-const askFullName = () => ({
-    response: `👤 **Để check-in, vui lòng cho tôi biết họ tên của bạn.**
-
-Ví dụ: "Tên tôi là Nguyễn Văn A"`,
-    needsInput: "fullName" as const,
-});
-
 const askPhone = () => ({
     response: `📱 **Vui lòng cung cấp số điện thoại của bạn.**
 
@@ -473,7 +461,7 @@ Vui lòng chọn: "BHYT" hoặc "Dịch vụ"`,
 });
 
 export const handleCheckIn = async (message: string, context: QueueContext) => {
-    const fullName = extractFullName(message) || context.fullName;
+    const fullName = localStorage.getItem("userName");
     const phoneNumber = extractPhoneNumber(message) || context.phoneNumber;
     const nationalId = extractNationalId(message) || context.nationalId;
     const queueType = extractQueueType(message) || context.queueType;
@@ -485,7 +473,6 @@ export const handleCheckIn = async (message: string, context: QueueContext) => {
         queueType,
     };
 
-    if (!fullName) return { ...askFullName(), context: newContext };
     if (!phoneNumber) return { ...askPhone(), context: newContext };
     if (!nationalId) return { ...askNationalId(), context: newContext };
     if (!queueType) return { ...askQueueTypeForCheckin(), context: newContext };
@@ -647,7 +634,7 @@ Bạn gửi lại giúp mình nhé. Ví dụ: **001234567890**`,
 
             return wrap(
                 context.flow === "idle" ? "checkin" : context.flow,
-                askFullName(),
+                askPhone(),
                 context
             );
         }
