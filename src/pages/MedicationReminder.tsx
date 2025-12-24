@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -12,7 +12,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import urlBase64ToUint8Array from "@/utils/convertToIntArray";
 import { ReminderService } from "@/services/reminder";
 
 const medicationSchema = z.object({
@@ -29,10 +28,28 @@ interface Medication extends MedicationForm {
   id: string;
   isActive: boolean;
   nextDose: string;
+  lastTakenDate?: string; 
 }
 
 const MedicationReminder = () => {
   const reminderService = new ReminderService()
+  
+  // Logic tính thời gian liều tiếp theo thông minh hơn
+  const calculateNextDose = (time: string): string => {
+    const now = new Date();
+    const [hours, minutes] = time.split(':').map(Number);
+    
+    // Tạo mốc thời gian của thuốc trong hôm nay
+    const scheduledTime = new Date();
+    scheduledTime.setHours(hours, minutes, 0, 0);
+
+    // Nếu giờ thuốc nhỏ hơn giờ hiện tại -> đã qua -> là ngày mai
+    if (scheduledTime < now) {
+      return `${time} ngày mai`;
+    }
+    return `${time} hôm nay`;
+  };
+
   const [medications, setMedications] = useState<Medication[]>([
     {
       id: "1",
@@ -42,7 +59,7 @@ const MedicationReminder = () => {
       time: "08:00",
       withFood: false,
       isActive: true,
-      nextDose: "14:00 hôm nay"
+      nextDose: "08:00 ngày mai" 
     },
     {
       id: "2",
@@ -77,12 +94,45 @@ const MedicationReminder = () => {
     { value: "as-needed", label: "Khi cần thiết" },
   ];
 
+  // Logic kiểm tra và thông báo
+  useEffect(() => {
+    if (Notification.permission !== "granted") {
+      Notification.requestPermission();
+    }
+
+    const interval = setInterval(() => {
+      const now = new Date();
+      const currentTime = now.toTimeString().slice(0, 5); 
+      const todayStr = now.toDateString();
+
+      medications.forEach((med) => {
+        const isTakenToday = med.lastTakenDate === todayStr;
+
+        // Chỉ báo khi: Đúng giờ + Đang bật + CHƯA uống hôm nay
+        if (med.time === currentTime && med.isActive && !isTakenToday) {
+           new Notification("💊 Đến giờ uống thuốc!", {
+             body: `Đừng quên uống: ${med.name} - ${med.dosage}`,
+             icon: "/vite.svg"
+           });
+
+           toast({
+             title: "Nhắc nhở",
+             description: `Đã đến giờ uống ${med.name}`,
+             className: "bg-red-500 text-white border-none"
+           });
+        }
+      });
+    }, 5000); // Check mỗi 5 giây để đảm bảo bắt đúng giờ
+
+    return () => clearInterval(interval);
+  }, [medications, toast]);
+
   const onSubmit = (data: MedicationForm) => {
     const newMedication: Medication = {
       ...data,
       id: Date.now().toString(),
       isActive: true,
-      nextDose: calculateNextDose(data.time, data.frequency)
+      nextDose: calculateNextDose(data.time) // Dùng hàm tính mới
     };
 
     setMedications([...medications, newMedication]);
@@ -90,77 +140,17 @@ const MedicationReminder = () => {
     form.reset();
     toast({
       title: "Thêm thuốc thành công!",
-      description: "Lời nhắc đã được thiết lập.",
+      description: `Lần uống tiếp theo: ${newMedication.nextDose}`,
     });
   };
 
-  const calculateNextDose = (time: string, frequency: string): string => {
-    // Simple calculation for demo
-    return `${time} hôm nay`;
-  };
-
   const toggleMedication = async (id: string) => {
-    try {
-      // 1️⃣ Check and request notification permission
-      let permission = Notification.permission;
-
-      if (permission === "default") {
-        permission = await Notification.requestPermission();
-        console.log("User selected:", permission);
-      }
-
-      if (permission === "granted") {
-        // Phần này là để set lời nhắc (lưu ý: cần bật thông báo và tắt chế độ không làm phiền trong setting windows)
-
-        // new Notification("✅ Notifications enabled!");
-
-        // 2️⃣ Register the Service Worker
-        // const registration = await navigator.serviceWorker.register("/sw.js");
-
-        // console.log("Service Worker registered");
-
-        // // 3️⃣ Subscribe to Push
-        // const subscription = await registration.pushManager.subscribe({
-        //   userVisibleOnly: true,
-        //   applicationServerKey: urlBase64ToUint8Array(import.meta.env.VITE_VAPID_PUBLIC_KEY),
-        // });
-
-        // const subscriptionData = {
-        //   endpoint: subscription.endpoint,
-        //   keys: {
-        //     p256dh: btoa(String.fromCharCode.apply(
-        //       null,
-        //       new Uint8Array(subscription.getKey("p256dh"))
-        //     )),
-        //     auth: btoa(String.fromCharCode.apply(
-        //       null,
-        //       new Uint8Array(subscription.getKey("auth"))
-        //     )),
-        //   },
-        // };
-        // console.log("Clean Subscription object:", subscriptionData);
-        // await reminderService.createReminder({
-        //   ...subscriptionData,
-        //   notifyAt: "2025-11-17T16:22:00.000Z", // Replace with actual notification time
-        // });
-
-        // console.log("Push Subscription successful at 2025-11-17T16:22:00.000Z");
-
-      } else {
-        console.log("Notifications not allowed.");
-      }
-
-      // 5️⃣ Toggle medication state in UI
-      setMedications((meds) =>
-        meds.map((med) =>
-          med.id === id ? { ...med, isActive: !med.isActive } : med
-        )
-      );
-    } catch (error) {
-      console.error("Error toggling medication:", error);
-    }
+    setMedications((meds) =>
+      meds.map((med) =>
+        med.id === id ? { ...med, isActive: !med.isActive } : med
+      )
+    );
   };
-
 
   const deleteMedication = (id: string) => {
     setMedications(medications.filter(med => med.id !== id));
@@ -171,10 +161,28 @@ const MedicationReminder = () => {
   };
 
   const markAsTaken = (id: string) => {
+    // Logic cập nhật trạng thái ĐÃ UỐNG
+    setMedications(meds => meds.map(med => {
+        if (med.id === id) {
+            return {
+                ...med,
+                lastTakenDate: new Date().toDateString(), // Lưu ngày hôm nay
+                nextDose: calculateNextDose(med.time) // Cập nhật hiển thị lần tới
+            };
+        }
+        return med;
+    }));
+
     toast({
       title: "Đã uống thuốc!",
-      description: "Cảm ơn bạn đã tuân thủ đúng giờ.",
+      description: "Cảm ơn bạn đã tuân thủ đúng giờ. Hệ thống sẽ ngừng nhắc nhở hôm nay.",
+      className: "bg-green-600 text-white border-none"
     });
+  };
+
+  // Helper check xem hôm nay đã uống chưa để render UI
+  const isTakenToday = (med: Medication) => {
+      return med.lastTakenDate === new Date().toDateString();
   };
 
   return (
@@ -210,33 +218,46 @@ const MedicationReminder = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {medications.filter(med => med.isActive).map((medication) => (
-                  <div key={medication.id} className="flex items-center justify-between p-4 rounded-lg bg-gradient-soft border">
-                    <div className="flex items-center gap-4">
-                      <div className="p-2 rounded-full bg-success/10">
-                        <Pill className="text-success" size={20} />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-foreground">{medication.name}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {medication.dosage} • {frequencies.find(f => f.value === medication.frequency)?.label}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Lần tiếp theo: {medication.nextDose}
-                          {medication.withFood && " • Uống cùng thức ăn"}
-                        </p>
-                      </div>
+                {medications.filter(med => med.isActive).map((medication) => {
+                  const taken = isTakenToday(medication);
+                  return (
+                    <div key={medication.id} className={`flex items-center justify-between p-4 rounded-lg border ${taken ? 'bg-green-50 border-green-200' : 'bg-white'}`}>
+                        <div className="flex items-center gap-4">
+                        <div className={`p-2 rounded-full ${taken ? 'bg-green-100' : 'bg-blue-100'}`}>
+                            <Pill className={taken ? 'text-green-600' : 'text-blue-600'} size={20} />
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <h3 className="font-semibold text-foreground">{medication.name}</h3>
+                                {taken && <Badge className="bg-green-600">Đã uống</Badge>}
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                            {medication.dosage} • {frequencies.find(f => f.value === medication.frequency)?.label}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                            Lần tiếp theo: {medication.nextDose}
+                            {medication.withFood && " • Uống cùng thức ăn"}
+                            </p>
+                        </div>
+                        </div>
+                        
+                        {!taken ? (
+                            <Button
+                            size="sm"
+                            onClick={() => markAsTaken(medication.id)}
+                            className="flex items-center gap-2"
+                            >
+                            <CheckCircle2 size={16} />
+                            Xác nhận
+                            </Button>
+                        ) : (
+                            <Button variant="ghost" disabled className="text-green-600">
+                                <CheckCircle2 size={16} className="mr-1"/> Hoàn thành
+                            </Button>
+                        )}
                     </div>
-                    <Button
-                      size="sm"
-                      onClick={() => markAsTaken(medication.id)}
-                      className="flex items-center gap-2"
-                    >
-                      <CheckCircle2 size={16} />
-                      Đã uống
-                    </Button>
-                  </div>
-                ))}
+                  );
+                })}
                 {medications.filter(med => med.isActive).length === 0 && (
                   <div className="text-center py-8 text-muted-foreground">
                     <Pill size={48} className="mx-auto mb-4 opacity-50" />
