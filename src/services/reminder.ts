@@ -1,5 +1,5 @@
 import { CreateReminderRequestProps } from '@/types/Request/Reminder';
-import { createItem, deleteItem, getById, updateItem } from './base';
+import { createItem, deleteItem, getAll, updateItem } from './base';
 import { REMINDER_ENDPOINTS } from '@/types/Endpoint/reminder';
 
 export class ReminderService {
@@ -9,7 +9,6 @@ export class ReminderService {
     constructor() {
         this.baseUrl = import.meta.env.VITE_REMINDER_BASE_URL;
         this.accessToken = (localStorage.getItem("accessToken") ?? "").replace(/\s+/g, "");
-        console.log("this.accessToken",this.accessToken)
     }
 
     createReminder = async (data: CreateReminderRequestProps) => {
@@ -20,22 +19,27 @@ export class ReminderService {
         );
     };
 
-    // getReminder = async () => {
-    //     return getById(this.baseUrl, '/reminders', "",
-    //         {
-    //             token: this.accessToken
-    //         }
-    //     );
-    // };
+    getReminders = async () => {
+        return getAll<any>(this.baseUrl, REMINDER_ENDPOINTS.CREATE,
+            {
+                token: this.accessToken
+            }
+        );
+    };
 
-    // updateReminder = async (id: string, data: CreateReminderRequestProps) => {
-    //     return updateItem(this.baseUrl, '/reminders', id, data);
-    // };
+    updateReminder = async (id: string, data: any) => {
+        return updateItem(this.baseUrl, REMINDER_ENDPOINTS.CREATE, id, data,
+            {
+                token: this.accessToken
+            }
+        );
+    };
 
-    // deleteReminder = async (id: string) => {
-    //     return deleteItem(this.baseUrl, '/reminders', id);
-    // };
-
+    deleteReminder = async (id: string) => {
+        return deleteItem(this.baseUrl, REMINDER_ENDPOINTS.CREATE, id,
+            {
+                token: this.accessToken
+            }
+        );
+    };
 }
-
-
