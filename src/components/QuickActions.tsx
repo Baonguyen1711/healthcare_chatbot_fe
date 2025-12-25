@@ -9,6 +9,7 @@ import {
     Smartphone,
     Heart,
     Shield,
+    Coins,
 } from "lucide-react";
 
 const QuickActions = () => {
@@ -49,9 +50,9 @@ const QuickActions = () => {
             bg: "bg-primary/10",
         },
         {
-            icon: Smartphone,
-            title: "Đa kênh",
-            description: "Web, App, Zalo - Mọi lúc mọi nơi",
+            icon: Coins,
+            title: "Thanh toán",
+            description: "Thanh toán đơn thuốc, viện phí",
             color: "text-success",
             bg: "bg-success/10",
         },
@@ -63,7 +64,7 @@ const QuickActions = () => {
         "Thông tin y tế": "/information",
         "Quy trình khám": "/process",
         "Phản hồi & Khảo sát": "/feedback",
-        "Đa kênh": "/multichannel",
+        "Thanh toán": "/billing",
     };
 
     const handleActionClick = (title: string) => {

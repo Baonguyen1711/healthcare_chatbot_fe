@@ -65,10 +65,10 @@ const App = () => (
                     <Route path="/check-in" element={<QueueManagement />} />
                     <Route path="/feedback" element={<FeedbackPage />} />
                     <Route
-                        path="/multichannel"
+                        path="/billing"
                         element={
                             <ProtectedRoute>
-                                <MultiChannel />
+                                <BillingTest />
                             </ProtectedRoute>
                         }
                     />

@@ -74,3 +74,9 @@ export interface LatestBillResponse {
     note?: string;
     message?: string; // For test endpoint
 }
+
+export interface TransactionHistoryResponse {
+    userId: string;
+    transactions: HospitalBill[];
+    total: number;
+}

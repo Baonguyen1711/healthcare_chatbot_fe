@@ -1,35 +1,227 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { useLatestBillWithUserId } from "@/hooks/use-billing";
-import { jwtDecode } from "jwt-decode";
-import { ArrowLeft, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
+import {
+    ArrowLeft,
+    RefreshCw,
+    History,
+    Receipt,
+    Calendar,
+    Building2,
+    User,
+    Stethoscope,
+    CreditCard,
+    CheckCircle2,
+    Clock,
+    XCircle,
+    Loader2,
+} from "lucide-react";
+import { BillingService } from "@/services/billingService";
+import { LatestBillResponse, HospitalBill } from "@/types/Response/Billing";
+import { cn } from "@/lib/utils";
 
 const BillingTest = () => {
-    const [autoUserId, setAutoUserId] = useState<string | null>(null);
-    const [testUserId, setTestUserId] = useState<string>("U001"); // Default test userId
+    const [activeView, setActiveView] = useState<"latest" | "history">("latest");
+    const [latestBill, setLatestBill] = useState<LatestBillResponse | null>(null);
+    const [transactions, setTransactions] = useState<HospitalBill[]>([]);
+    const [isLoadingLatest, setIsLoadingLatest] = useState(false);
+    const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
-    // Tự động lấy userId từ token để hiển thị
+    const billingService = new BillingService();
+
+    // Load latest bill on mount
     useEffect(() => {
-        const idToken = localStorage.getItem("idToken");
-        if (idToken) {
-            try {
-                const decoded: any = jwtDecode(idToken);
-                const extractedUserId = decoded.sub || decoded.userId || decoded["cognito:username"];
-                setAutoUserId(extractedUserId);
-            } catch (error) {
-                console.error("Error decoding token:", error);
-            }
-        }
+        loadLatestBill();
     }, []);
 
-    const { bill, loading, error, refetch } = useLatestBillWithUserId(testUserId);
+    // Load history when switching to history tab
+    useEffect(() => {
+        if (activeView === "history" && transactions.length === 0) {
+            loadTransactionHistory();
+        }
+    }, [activeView]);
+
+    const loadLatestBill = async () => {
+        setIsLoadingLatest(true);
+        setError(null);
+        try {
+            const response = await billingService.getLatestBill();
+            setLatestBill(response.data);
+        } catch (err: any) {
+            setError(err.message || "Không thể tải thông tin hóa đơn");
+        } finally {
+            setIsLoadingLatest(false);
+        }
+    };
+
+    const loadTransactionHistory = async () => {
+        setIsLoadingHistory(true);
+        setError(null);
+        try {
+            const response = await billingService.getTransactionHistory();
+            setTransactions(response.data.transactions || []);
+        } catch (err: any) {
+            setError(err.message || "Không thể tải lịch sử giao dịch");
+        } finally {
+            setIsLoadingHistory(false);
+        }
+    };
+
+    const getPaymentStatusBadge = (status?: string) => {
+        switch (status) {
+            case "PAID":
+                return (
+                    <Badge className="bg-[#9BF73C]/10 text-[#9BF73C] border-[#9BF73C]/20 px-4 py-2 text-base">
+                        <CheckCircle2 size={18} className="mr-2" />
+                        Đã thanh toán
+                    </Badge>
+                );
+            case "PENDING":
+                return (
+                    <Badge className="bg-yellow-500/10 text-yellow-700 border-yellow-200 px-4 py-2 text-base">
+                        <Clock size={18} className="mr-2" />
+                        Chờ thanh toán
+                    </Badge>
+                );
+            case "CANCELLED":
+                return (
+                    <Badge className="bg-red-500/10 text-red-700 border-red-200 px-4 py-2 text-base">
+                        <XCircle size={18} className="mr-2" />
+                        Đã hủy
+                    </Badge>
+                );
+            default:
+                return (
+                    <Badge variant="outline" className="px-4 py-2 text-base">
+                        <Clock size={18} className="mr-2" />
+                        Không rõ
+                    </Badge>
+                );
+        }
+    };
+
+    const renderBillCard = (bill: LatestBillResponse | HospitalBill, isLatest = false) => (
+        <Card className={cn(
+            "border-0 shadow-elegant overflow-hidden",
+            isLatest && "border-2 border-primary/20"
+        )}>
+            {/* Header with gradient */}
+            <div className="relative bg-gradient-to-br from-primary via-primary to-primary/90 p-6 text-primary-foreground">
+                <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full -mr-20 -mt-20" />
+                <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full -ml-16 -mb-16" />
+
+                <div className="relative space-y-3">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <Receipt size={24} />
+                            <h3 className="text-xl font-bold">Hóa đơn #{bill.visitId}</h3>
+                        </div>
+                        {getPaymentStatusBadge(bill.paymentStatus)}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div className="flex items-center gap-2">
+                            <Calendar size={16} className="opacity-80" />
+                            <span>{new Date(bill.visitDate).toLocaleDateString("vi-VN")}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Building2 size={16} className="opacity-80" />
+                            <span className="truncate">{bill.hospitalName}</span>
+                        </div>
+                    </div>
+
+                    {bill.doctorName && (
+                        <div className="flex items-center gap-2 text-sm">
+                            <Stethoscope size={16} className="opacity-80" />
+                            <span>{bill.doctorName}</span>
+                            {bill.department && <span className="opacity-60">• {bill.department}</span>}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Content */}
+            <CardContent className="p-6 space-y-4">
+                {/* Diagnosis */}
+                {bill.diagnosis && (
+                    <div className="p-4 rounded-xl bg-muted/60">
+                        <p className="text-sm text-muted-foreground mb-1">Chẩn đoán</p>
+                        <p className="font-medium">{bill.diagnosis}</p>
+                    </div>
+                )}
+
+                {/* Services */}
+                <div>
+                    <h4 className="font-semibold mb-3 flex items-center gap-2">
+                        <Receipt size={18} className="text-primary" />
+                        Dịch vụ sử dụng
+                    </h4>
+                    <div className="space-y-2">
+                        {bill.services.map((service, idx) => (
+                            <div key={idx} className="flex justify-between items-center p-3 rounded-lg bg-muted/40">
+                                <div>
+                                    <p className="font-medium text-sm">{service.serviceName}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        {service.quantity} x {service.unitPrice.toLocaleString("vi-VN")} ₫
+                                    </p>
+                                </div>
+                                <span className="font-semibold">{service.totalPrice.toLocaleString("vi-VN")} ₫</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Summary */}
+                <div className="border-t pt-4 space-y-3">
+                    <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Tổng chi phí</span>
+                        <span className="font-semibold">{bill.totalBasePrice.toLocaleString("vi-VN")} ₫</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">BHYT chi trả</span>
+                        <span className="font-semibold text-green-600">
+                            -{bill.totalInsuranceCovered.toLocaleString("vi-VN")} ₫
+                        </span>
+                    </div>
+                    <div className="flex justify-between items-center text-lg font-bold border-t pt-3">
+                        <span>Bệnh nhân trả</span>
+                        <span className="text-primary">{bill.totalPatientPay.toLocaleString("vi-VN")} ₫</span>
+                    </div>
+                </div>
+
+                {/* Payment Info */}
+                {bill.paymentMethod && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <CreditCard size={16} />
+                        <span>Phương thức: {bill.paymentMethod}</span>
+                        {bill.paymentDate && (
+                            <>
+                                <span>•</span>
+                                <span>{new Date(bill.paymentDate).toLocaleDateString("vi-VN")}</span>
+                            </>
+                        )}
+                    </div>
+                )}
+
+                {/* Note */}
+                {bill.note && (
+                    <div className="p-4 rounded-xl bg-blue-50 border border-blue-100">
+                        <p className="text-sm text-blue-900">
+                            <strong>Ghi chú:</strong> {bill.note}
+                        </p>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    );
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 p-8">
-            <div className="container mx-auto max-w-4xl">
+        <div className="min-h-screen bg-gradient-soft">
+            <div className="container mx-auto px-4 py-8 max-w-5xl">
+                {/* Back button */}
                 <div className="mb-6">
                     <Button variant="ghost" size="sm" asChild>
                         <Link to="/" className="flex items-center gap-2">
@@ -39,248 +231,171 @@ const BillingTest = () => {
                     </Button>
                 </div>
 
-                <h1 className="text-3xl font-bold mb-8 text-center">🧪 Test Billing API</h1>
-
-                {/* Environment Info */}
-                <Card className="mb-6 border-blue-200 bg-blue-50">
-                    <CardHeader>
-                        <CardTitle className="text-lg">📋 Thông tin cấu hình</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                            <span className="font-medium">API Base URL:</span>
-                            <code className="bg-white px-2 py-1 rounded text-xs">
-                                {import.meta.env.VITE_BILLING_BASE_URL || "❌ Chưa cấu hình"}
-                            </code>
+                {/* Header */}
+                <div className="mb-8">
+                    <div className="flex items-center gap-4 mb-2">
+                        <div className="w-12 h-12 rounded-2xl bg-gradient-primary flex items-center justify-center shadow-soft">
+                            <Receipt className="text-primary-foreground" size={24} />
                         </div>
-                        <div className="flex justify-between">
-                            <span className="font-medium">Endpoint:</span>
-                            <code className="bg-white px-2 py-1 rounded">/billing/latest</code>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="font-medium">Access Token:</span>
-                            <code className="bg-white px-2 py-1 rounded text-xs">
-                                {localStorage.getItem("accessToken") ? "✅ Có" : "❌ Không có"}
-                            </code>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="font-medium">User ID (từ token):</span>
-                            <code className="bg-white px-2 py-1 rounded text-xs">
-                                {autoUserId || "❌ Không tìm thấy"}
-                            </code>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Test Button */}
-                <Card className="mb-6">
-                    <CardHeader>
-                        <CardTitle>🎯 Test API Request</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="space-y-2">
-                            <label htmlFor="testUserId" className="text-sm font-medium">
-                                User ID để test:
-                            </label>
-                            <Input
-                                id="testUserId"
-                                type="text"
-                                value={testUserId}
-                                onChange={(e) => setTestUserId(e.target.value)}
-                                placeholder="Nhập userId (ví dụ: U001)"
-                                className="font-mono"
-                            />
-                            <p className="text-xs text-muted-foreground">
-                                💡 Mặc định là "U001". Bạn có thể thay đổi để test với userId khác.
+                        <div>
+                            <h1 className="text-3xl font-bold text-foreground">Quản lý thanh toán</h1>
+                            <p className="text-muted-foreground text-md mt-1">
+                                Xem và quản lý hóa đơn viện phí của bạn
                             </p>
                         </div>
+                    </div>
+                </div>
 
-                        <div className="flex gap-3">
-                            <Button onClick={() => refetch()} disabled={loading || !testUserId} className="flex-1">
-                                {loading ? (
-                                    <>
-                                        <Loader2 className="animate-spin mr-2" size={16} />
-                                        Đang gọi API...
-                                    </>
-                                ) : (
-                                    "🚀 Test API với userId: " + testUserId
-                                )}
+                {/* View Tabs */}
+                <div className="flex gap-3 mb-8 p-1 bg-muted rounded-xl">
+                    <button
+                        onClick={() => setActiveView("latest")}
+                        className={`flex-1 py-3 px-4 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2 ${activeView === "latest"
+                            ? "bg-background shadow-soft text-foreground"
+                            : "text-muted-foreground hover:text-foreground hover:bg-background/40"
+                            }`}
+                    >
+                        <Receipt size={18} />
+                        <span>Hóa đơn gần nhất</span>
+                    </button>
+                    <button
+                        onClick={() => setActiveView("history")}
+                        className={`flex-1 py-3 px-4 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2 ${activeView === "history"
+                            ? "bg-background shadow-soft text-foreground"
+                            : "text-muted-foreground hover:text-foreground hover:bg-background/40"
+                            }`}
+                    >
+                        <History size={18} />
+                        <span>Lịch sử giao dịch</span>
+                    </button>
+                </div>
+
+                {/* Latest Bill View */}
+                {activeView === "latest" && (
+                    <div className="space-y-6">
+                        {/* Refresh Button */}
+                        <div className="flex justify-end">
+                            <Button
+                                onClick={loadLatestBill}
+                                disabled={isLoadingLatest}
+                                variant="outline"
+                                className="gap-2"
+                            >
+                                <RefreshCw size={16} className={cn(isLoadingLatest && "animate-spin")} />
+                                Làm mới
                             </Button>
                         </div>
-                    </CardContent>
-                </Card>
 
-                {/* Results */}
-                <Card className="mb-6">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            {loading ? (
-                                <>
-                                    <Loader2 className="animate-spin text-blue-600" size={20} />
-                                    Đang tải...
-                                </>
-                            ) : error ? (
-                                <>
-                                    <XCircle className="text-red-600" size={20} />
-                                    Lỗi
-                                </>
-                            ) : bill ? (
-                                <>
-                                    <CheckCircle2 className="text-green-600" size={20} />
-                                    Thành công
-                                </>
-                            ) : (
-                                "Chưa test"
-                            )}
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        {loading && (
-                            <div className="text-center py-8">
-                                <Loader2 className="animate-spin mx-auto mb-4 text-blue-600" size={32} />
-                                <p className="text-muted-foreground">Đang gọi API...</p>
-                            </div>
+                        {/* Loading State */}
+                        {isLoadingLatest && (
+                            <Card className="border-0 shadow-elegant">
+                                <CardContent className="flex flex-col items-center justify-center py-12">
+                                    <Loader2 className="animate-spin text-primary mb-3" size={32} />
+                                    <span className="text-muted-foreground">Đang tải thông tin hóa đơn...</span>
+                                </CardContent>
+                            </Card>
                         )}
 
-                        {error && (
-                            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                                <h3 className="font-semibold text-red-800 mb-2">❌ Lỗi khi gọi API</h3>
-                                <p className="text-sm text-red-700 mb-4">{error}</p>
+                        {/* Error State */}
+                        {error && !isLoadingLatest && (
+                            <Card className="border-0 shadow-elegant border-red-200">
+                                <CardContent className="p-6">
+                                    <div className="flex items-start gap-3">
+                                        <XCircle className="text-red-500 flex-shrink-0" size={24} />
+                                        <div>
+                                            <h3 className="font-semibold text-red-900 mb-1">Lỗi tải dữ liệu</h3>
+                                            <p className="text-sm text-red-700">{error}</p>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
 
-                                <div className="bg-white p-3 rounded border border-red-200">
-                                    <p className="text-xs font-mono text-gray-700">
-                                        <strong>Kiểm tra:</strong><br />
-                                        1. VITE_BILLING_BASE_URL đã cấu hình chưa?<br />
-                                        2. Access token có hợp lệ không? (Login lại thử)<br />
-                                        3. userId trong token có tồn tại trong DynamoDB không?<br />
-                                        4. CORS đã được cấu hình chưa?<br />
-                                        5. Xem Network tab trong DevTools (F12)
+                        {/* Latest Bill */}
+                        {!isLoadingLatest && !error && latestBill && renderBillCard(latestBill, true)}
+
+                        {/* No Data */}
+                        {!isLoadingLatest && !error && !latestBill && (
+                            <Card className="border-0 shadow-elegant">
+                                <CardContent className="text-center py-12">
+                                    <Receipt className="mx-auto text-muted-foreground mb-3" size={48} />
+                                    <p className="text-muted-foreground mb-2">Chưa có hóa đơn nào</p>
+                                    <p className="text-sm text-muted-foreground">
+                                        Hóa đơn của bạn sẽ hiển thị ở đây sau khi khám bệnh
                                     </p>
-                                </div>
-                            </div>
+                                </CardContent>
+                            </Card>
+                        )}
+                    </div>
+                )}
+
+                {/* Transaction History View */}
+                {activeView === "history" && (
+                    <div className="space-y-6">
+                        {/* Refresh Button */}
+                        <div className="flex justify-end">
+                            <Button
+                                onClick={loadTransactionHistory}
+                                disabled={isLoadingHistory}
+                                variant="outline"
+                                className="gap-2"
+                            >
+                                <RefreshCw size={16} className={cn(isLoadingHistory && "animate-spin")} />
+                                Làm mới
+                            </Button>
+                        </div>
+
+                        {/* Loading State */}
+                        {isLoadingHistory && (
+                            <Card className="border-0 shadow-elegant">
+                                <CardContent className="flex flex-col items-center justify-center py-12">
+                                    <Loader2 className="animate-spin text-primary mb-3" size={32} />
+                                    <span className="text-muted-foreground">Đang tải lịch sử giao dịch...</span>
+                                </CardContent>
+                            </Card>
                         )}
 
-                        {bill && (
-                            <div className="bg-green-50 border border-green-200 rounded-lg p-4 space-y-4">
-                                <div className="flex items-center gap-2 mb-4">
-                                    <CheckCircle2 className="text-green-600" size={20} />
-                                    <h3 className="font-semibold text-green-800">✅ API hoạt động tốt!</h3>
-                                </div>
-
-                                <div className="bg-white rounded-lg p-4 space-y-3">
-                                    <h4 className="font-semibold text-gray-800 mb-3">📊 Dữ liệu trả về:</h4>
-
-                                    <div className="grid grid-cols-2 gap-3 text-sm">
+                        {/* Error State */}
+                        {error && !isLoadingHistory && (
+                            <Card className="border-0 shadow-elegant border-red-200">
+                                <CardContent className="p-6">
+                                    <div className="flex items-start gap-3">
+                                        <XCircle className="text-red-500 flex-shrink-0" size={24} />
                                         <div>
-                                            <span className="text-gray-600">User ID:</span>
-                                            <p className="font-medium">{bill.userId}</p>
-                                        </div>
-                                        <div>
-                                            <span className="text-gray-600">Visit ID:</span>
-                                            <p className="font-medium">{bill.visitId}</p>
-                                        </div>
-                                        <div>
-                                            <span className="text-gray-600">Bệnh viện:</span>
-                                            <p className="font-medium">{bill.hospitalName}</p>
-                                        </div>
-                                        <div>
-                                            <span className="text-gray-600">Ngày khám:</span>
-                                            <p className="font-medium">
-                                                {new Date(bill.visitDate).toLocaleDateString('vi-VN')}
-                                            </p>
-                                        </div>
-                                        <div>
-                                            <span className="text-gray-600">Loại BHYT:</span>
-                                            <p className="font-medium">{bill.insuranceType}</p>
-                                        </div>
-                                        <div>
-                                            <span className="text-gray-600">Số dịch vụ:</span>
-                                            <p className="font-medium">{bill.services.length}</p>
+                                            <h3 className="font-semibold text-red-900 mb-1">Lỗi tải dữ liệu</h3>
+                                            <p className="text-sm text-red-700">{error}</p>
                                         </div>
                                     </div>
-
-                                    <div className="border-t pt-3 mt-3">
-                                        <h5 className="font-semibold text-gray-700 mb-2">Dịch vụ:</h5>
-                                        <div className="space-y-2">
-                                            {bill.services.map((service, idx) => (
-                                                <div key={idx} className="flex justify-between text-sm bg-gray-50 p-2 rounded">
-                                                    <span>{service.serviceName}</span>
-                                                    <span className="font-medium">{service.totalPrice.toLocaleString('vi-VN')} ₫</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    <div className="border-t pt-3 mt-3 space-y-2">
-                                        <div className="flex justify-between text-sm">
-                                            <span className="text-gray-600">Tổng chi phí:</span>
-                                            <span className="font-semibold">{bill.totalBasePrice.toLocaleString('vi-VN')} ₫</span>
-                                        </div>
-                                        <div className="flex justify-between text-sm">
-                                            <span className="text-gray-600">BHYT chi trả:</span>
-                                            <span className="font-semibold text-green-600">
-                                                -{bill.totalInsuranceCovered.toLocaleString('vi-VN')} ₫
-                                            </span>
-                                        </div>
-                                        <div className="flex justify-between text-lg font-bold border-t pt-2">
-                                            <span>Bệnh nhân trả:</span>
-                                            <span className="text-blue-600">{bill.totalPatientPay.toLocaleString('vi-VN')} ₫</span>
-                                        </div>
-                                    </div>
-
-                                    {bill.note && (
-                                        <div className="border-t pt-3 mt-3">
-                                            <span className="text-gray-600 text-sm">Ghi chú:</span>
-                                            <p className="text-sm mt-1">{bill.note}</p>
-                                        </div>
-                                    )}
-                                </div>
-
-                                <details className="bg-white rounded-lg p-4">
-                                    <summary className="cursor-pointer font-medium text-gray-700">
-                                        🔍 Xem JSON Response
-                                    </summary>
-                                    <pre className="mt-3 text-xs bg-gray-100 p-3 rounded overflow-auto max-h-96">
-                                        {JSON.stringify(bill, null, 2)}
-                                    </pre>
-                                </details>
-                            </div>
+                                </CardContent>
+                            </Card>
                         )}
 
-                        {!loading && !error && !bill && (
-                            <div className="text-center py-8 text-muted-foreground">
-                                Nhấn "Test API" để bắt đầu
-                            </div>
+                        {/* Transaction List */}
+                        {!isLoadingHistory && !error && transactions.length > 0 && (
+                            <>
+                                <div className="text-sm text-muted-foreground mb-4">
+                                    Tổng cộng: <strong>{transactions.length}</strong> giao dịch
+                                </div>
+                                {transactions.map((transaction) => (
+                                    <div key={transaction.visitId}>{renderBillCard(transaction)}</div>
+                                ))}
+                            </>
                         )}
-                    </CardContent>
-                </Card>
 
-                {/* Instructions */}
-                <Card className="border-purple-200 bg-purple-50">
-                    <CardHeader>
-                        <CardTitle className="text-lg">💡 Hướng dẫn test</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3 text-sm">
-                        <div>
-                            <strong>1. Đảm bảo đã login:</strong>
-                            <p className="text-gray-600 mt-1">
-                                Bạn cần login trước để có JWT token
-                            </p>
-                        </div>
-                        <div>
-                            <strong>2. Kiểm tra userId trong DynamoDB:</strong>
-                            <p className="text-gray-600 mt-1">
-                                userId từ token ({autoUserId || "N/A"}) phải tồn tại trong table HospitalBills
-                            </p>
-                        </div>
-                        <div>
-                            <strong>3. Xem kết quả:</strong>
-                            <p className="text-gray-600 mt-1">
-                                Nếu thành công sẽ hiển thị dữ liệu viện phí. Nếu lỗi, mở DevTools (F12) để xem chi tiết.
-                            </p>
-                        </div>
-                    </CardContent>
-                </Card>
+                        {/* No Data */}
+                        {!isLoadingHistory && !error && transactions.length === 0 && (
+                            <Card className="border-0 shadow-elegant">
+                                <CardContent className="text-center py-12">
+                                    <History className="mx-auto text-muted-foreground mb-3" size={48} />
+                                    <p className="text-muted-foreground mb-2">Chưa có lịch sử giao dịch</p>
+                                    <p className="text-sm text-muted-foreground">
+                                        Lịch sử giao dịch của bạn sẽ hiển thị ở đây
+                                    </p>
+                                </CardContent>
+                            </Card>
+                        )}
+                    </div>
+                )}
             </div>
         </div>
     );
