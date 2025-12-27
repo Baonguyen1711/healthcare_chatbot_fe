@@ -1,5 +1,5 @@
 import { CreateReminderRequestProps } from '@/types/Request/Reminder';
-import { createItem, deleteItem, getAll, updateItem } from './base';
+import { createItem, deleteItem, getAll, updateItem } from './base'; 
 import { REMINDER_ENDPOINTS } from '@/types/Endpoint/reminder';
 
 export class ReminderService {
@@ -19,24 +19,32 @@ export class ReminderService {
         );
     };
 
-    getReminders = async () => {
-        return getAll<any>(this.baseUrl, REMINDER_ENDPOINTS.CREATE,
-            {
-                token: this.accessToken
-            }
-        );
+    getReminder = async () => {
+         return getAll<any>(this.baseUrl, REMINDER_ENDPOINTS.CREATE,
+             {
+                 token: this.accessToken
+             }
+         );
     };
 
     updateReminder = async (id: string, data: any) => {
-        return updateItem(this.baseUrl, REMINDER_ENDPOINTS.CREATE, id, data,
+         return updateItem(this.baseUrl, REMINDER_ENDPOINTS.CREATE, id, data,
             {
-                token: this.accessToken
+                 token: this.accessToken
             }
-        );
+         );
     };
 
     deleteReminder = async (id: string) => {
-        return deleteItem(this.baseUrl, REMINDER_ENDPOINTS.CREATE, id,
+         return deleteItem(this.baseUrl, REMINDER_ENDPOINTS.CREATE, id,
+            {
+                 token: this.accessToken
+            }
+         );
+    };
+
+    syncMedicineToStorage = async (medicineIds: string[]) => {
+        return createItem(this.baseUrl, '/api/reminders/storage-sync', { medicineIds },
             {
                 token: this.accessToken
             }
