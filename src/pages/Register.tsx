@@ -6,9 +6,11 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { AuthService } from "@/services/auth";
 import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 
 const Register = () => {
   const authService = new AuthService()
+  const { toast } = useToast();
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     firstName: "",
@@ -23,7 +25,7 @@ const Register = () => {
     e.preventDefault();
     try {
 
-      if(formData.password !== formData.confirmPassword) {
+      if (formData.password !== formData.confirmPassword) {
         alert("Passwords do not match!");
         return;
       }
@@ -40,13 +42,22 @@ const Register = () => {
 
       const response = await authService.registerAccount(registerObjecct);
 
-      if(response.status == 200) {
+      if (response.status == 200) {
         localStorage.setItem("registeredEmail", formData.email);
+        toast({
+          title: "Đăng ký thành công",
+          variant: "default",
+        });
         navigate("/confirm-email");
       }
       console.log("Registration successful:", response);
     } catch (error) {
       console.error("Registration failed:", error);
+      toast({
+        title: "Đăng ký thất bại",
+        description: error.message || "Vui lòng thử lại.",
+        variant: "destructive",
+      });
     }
   };
 
