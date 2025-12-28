@@ -71,10 +71,6 @@ const App = () => (
                             </ProtectedRoute>
                         }
                     />
-                    <Route
-                        path="/medication-schedule"
-                        element={<MedicationSchedule />}
-                    />
                     <Route path="/billing-test" element={<BillingTest />} />
                     <Route
                         path="/billing-test-simple"

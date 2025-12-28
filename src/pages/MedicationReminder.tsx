@@ -14,7 +14,9 @@ import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { ReminderService } from "@/services/reminder";
 
-// SỬA SCHEMA: time -> times (mảng) để đáp ứng yêu cầu nhập nhiều giờ
+const CHECK_HOUR = 22;
+const CHECK_MINUTE = 0;
+
 const medicationSchema = z.object({
   name: z.string().min(1, "Tên thuốc không được để trống"),
   dosage: z.string().min(1, "Liều lượng không được để trống"),
@@ -30,36 +32,32 @@ interface Medication {
   name: string;
   dosage: string;
   frequency: string;
-  time: string; // Trong data thuốc vẫn giữ time đơn lẻ để dễ quản lý
+  time: string;
   withFood: boolean;
   isActive: boolean;
   nextDose: string;
-  lastTakenDate?: string; 
+  lastTakenDate?: string;
+  createdAt?: number; 
 }
 
 const MedicationReminder = () => {
-  const reminderService = new ReminderService()
-  
-  // Giữ nguyên logic tính toán của bạn bạn
+  const reminderService = new ReminderService();
+  const [medications, setMedications] = useState<Medication[]>([]);
+  const [showForm, setShowForm] = useState(false);
+  const { toast } = useToast();
+
   const calculateNextDose = (time: string): string => {
     const now = new Date();
     const [hours, minutes] = time.split(':').map(Number);
     
-    // Tạo mốc thời gian của thuốc trong hôm nay
     const scheduledTime = new Date();
     scheduledTime.setHours(hours, minutes, 0, 0);
 
-    // Nếu giờ thuốc nhỏ hơn giờ hiện tại -> đã qua -> là ngày mai
     if (scheduledTime < now) {
       return `${time} ngày mai`;
     }
     return `${time} hôm nay`;
   };
-
-  const [medications, setMedications] = useState<Medication[]>([
-  ]);
-  const [showForm, setShowForm] = useState(false);
-  const { toast } = useToast();
 
   const form = useForm<MedicationForm>({
     resolver: zodResolver(medicationSchema),
@@ -67,7 +65,7 @@ const MedicationReminder = () => {
       name: "",
       dosage: "",
       frequency: "once-day",
-      times: ["08:00"], // Mặc định 1 giờ
+      times: ["08:00"],
       withFood: false,
     },
   });
@@ -80,53 +78,56 @@ const MedicationReminder = () => {
     { value: "as-needed", label: "Khi cần thiết", count: 0 },
   ];
 
-  // --- LOGIC MỚI: Tự động cập nhật số ô nhập giờ (Yêu cầu của bạn) ---
   const selectedFrequency = form.watch("frequency");
+  
   useEffect(() => {
     const count = frequencies.find(f => f.value === selectedFrequency)?.count || 1;
     const currentTimes = form.getValues("times");
-    // Nếu số ô nhập không khớp với tần suất thì reset lại mảng times
     if (currentTimes.length !== count && count > 0) {
         const newTimes = Array(count).fill("").map((_, i) => currentTimes[i] || "08:00");
         form.setValue("times", newTimes);
     }
   }, [selectedFrequency, form]);
 
-  // --- LOGIC MỚI: Tải API & Check cuối ngày (Yêu cầu của bạn) ---
   useEffect(() => {
-    const fetchDataAndCheck = async () => {
+    const fetchData = async () => {
         try {
-            // Gọi API getReminder (đã mở trong service)
             const data = await reminderService.getReminder();
             if (Array.isArray(data)) {
-                setMedications(data as Medication[]);
-
-                // Logic check cuối ngày (sau 21h)
-                const now = new Date();
-                if (now.getHours() >= 21) {
-                    const todayStr = now.toDateString();
-                    // Lọc thuốc cần uống hôm nay nhưng chưa uống (active + chưa có lastTakenDate hôm nay)
-                    const missed = (data as Medication[]).filter(m => m.isActive && m.lastTakenDate !== todayStr);
-                    
-                    // Kiểm tra session để không báo lặp lại liên tục
-                    if (sessionStorage.getItem("lastCheck") !== todayStr) {
-                         if (missed.length === 0 && data.length > 0) {
-                             new Notification("Tổng kết cuối ngày", { body: "Bạn đã uống đủ thuốc. Tuyệt vời! 🎉" });
-                         } else if (missed.length > 0) {
-                             new Notification("Nhắc nhở cuối ngày", { body: `Bạn chưa uống ${missed.length} liều thuốc hôm nay!` });
-                         }
-                         sessionStorage.setItem("lastCheck", todayStr);
-                    }
-                }
+                const mappedData = data.map((item: any) => ({
+                    ...item,
+                    createdAt: item.createdAt || 0 
+                }));
+                setMedications(mappedData);
             }
         } catch (error) {
             console.error(error);
         }
     };
-    fetchDataAndCheck();
-  }, []); // Chạy 1 lần khi vào trang
+    fetchData();
+  }, []);
 
-  // Giữ nguyên Logic kiểm tra và thông báo local (Code của bạn bạn)
+  const shouldShowToday = (med: Medication) => {
+      if (!med.isActive) return false;
+      if (med.lastTakenDate === new Date().toDateString()) return false;
+
+      const now = new Date();
+      const [hours, minutes] = med.time.split(':').map(Number);
+      
+      const medTimeToday = new Date();
+      medTimeToday.setHours(hours, minutes, 0, 0);
+
+      if (medTimeToday > now) return true;
+
+      const createdTime = med.createdAt || 0;
+      // SỬA: Thêm 60000ms (1 phút) để chấp nhận trường hợp tạo ngay trong phút đó
+      if (createdTime <= medTimeToday.getTime() + 60000) {
+          return true; 
+      }
+
+      return false; 
+  };
+
   useEffect(() => {
     if (Notification.permission !== "granted") {
       Notification.requestPermission();
@@ -140,7 +141,6 @@ const MedicationReminder = () => {
       medications.forEach((med) => {
         const isTakenToday = med.lastTakenDate === todayStr;
 
-        // Chỉ báo khi: Đúng giờ + Đang bật + CHƯA uống hôm nay
         if (med.time === currentTime && med.isActive && !isTakenToday) {
            new Notification("💊 Đến giờ uống thuốc!", {
              body: `Đừng quên uống: ${med.name} - ${med.dosage}`,
@@ -154,41 +154,75 @@ const MedicationReminder = () => {
            });
         }
       });
-    }, 5000); // Check mỗi 5 giây để đảm bảo bắt đúng giờ
+
+      const isTimeToCheck = now.getHours() > CHECK_HOUR || 
+                           (now.getHours() === CHECK_HOUR && now.getMinutes() >= CHECK_MINUTE);
+
+      if (isTimeToCheck && medications.length > 0) {
+         const hasCheckedToday = sessionStorage.getItem("lastCheck") === todayStr;
+         
+         if (!hasCheckedToday) {
+             const missed = medications.filter(medItem => {
+                 const isTaken = medItem.lastTakenDate === todayStr;
+                 if (isTaken) return false; 
+                 
+                 const [hours, minutes] = medItem.time.split(':').map(Number);
+                 const medTime = new Date();
+                 medTime.setHours(hours, minutes, 0, 0);
+                 const created = medItem.createdAt || 0;
+                 
+                 return medItem.isActive && (created <= medTime.getTime() + 60000);
+             });
+             
+             setTimeout(() => {
+                 if (missed.length === 0) {
+                     new Notification("Tổng kết cuối ngày", { body: "Bạn đã uống đủ thuốc. Tuyệt vời! 🎉" });
+                 } else {
+                     new Notification("Nhắc nhở cuối ngày", { body: `Bạn chưa uống ${missed.length} liều thuốc hôm nay!` });
+                 }
+             }, 2000);
+             
+             sessionStorage.setItem("lastCheck", todayStr);
+         }
+      }
+
+    }, 5000); 
 
     return () => clearInterval(interval);
   }, [medications, toast]);
 
-  // SỬA: Hàm onSubmit để xử lý nhiều giờ + Gọi API
   const onSubmit = async (data: MedicationForm) => {
-    // Duyệt qua từng giờ trong mảng times
+    const newMedicationsList: Medication[] = [];
+    const createdTimestamp = Date.now(); 
+
     for (const time of data.times) {
-        // 1. Tạo object thuốc
         const newMedication: Medication = {
-            id: Date.now().toString() + Math.random().toString(), 
+            id: createdTimestamp.toString() + Math.random().toString(), 
             name: data.name,
             dosage: data.dosage,
             frequency: data.frequency,
             time: time, 
             withFood: data.withFood,
             isActive: true,
-            nextDose: calculateNextDose(time)
+            nextDose: calculateNextDose(time),
+            createdAt: createdTimestamp 
         };
-
-        // 2. Cập nhật UI ngay lập tức
-        setMedications(prev => [...prev, newMedication]);
-
-        // 3. Gọi API Create (Thêm của bạn)
-try {
-    const service = new ReminderService();
-    const currentMedicineIds = medications.map((item) => item.id);
-    
-    if (currentMedicineIds.length > 0) {
-        await service.syncMedicineToStorage(currentMedicineIds);
+        newMedicationsList.push(newMedication);
     }
-} catch (error) {
-    console.error(error);
-}
+
+    setMedications(prev => [...prev, ...newMedicationsList]);
+
+    try {
+        const currentIds = medications.map(m => m.id);
+        const newIds = newMedicationsList.map(m => m.id);
+        const allIds = [...currentIds, ...newIds];
+        
+        if (allIds.length > 0) {
+            // await reminderService.syncMedicineToStorage(allIds);
+        }
+    } catch (error) {
+        console.error(error);
+    }
 
     setShowForm(false);
     form.reset();
@@ -198,21 +232,17 @@ try {
     });
   };
 
-  // SỬA: Thêm gọi API update vào toggle
   const toggleMedication = async (id: string) => {
     const med = medications.find(m => m.id === id);
     if (med) {
         const updated = { ...med, isActive: !med.isActive };
-        // Gọi API
-        await reminderService.updateReminder(id, updated).catch(console.error);
-        // Update State
+        // await reminderService.updateReminder(id, updated).catch(console.error);
         setMedications(meds => meds.map(m => m.id === id ? updated : m));
     }
   };
 
-  // SỬA: Thêm gọi API delete
   const deleteMedication = async (id: string) => {
-    await reminderService.deleteReminder(id).catch(console.error);
+    // await reminderService.deleteReminder(id).catch(console.error);
     setMedications(medications.filter(med => med.id !== id));
     toast({
       title: "Đã xóa thuốc",
@@ -220,7 +250,6 @@ try {
     });
   };
 
-  // SỬA: Thêm gọi API update khi uống
   const markAsTaken = async (id: string) => {
     const med = medications.find(m => m.id === id);
     if (med) {
@@ -229,8 +258,7 @@ try {
             lastTakenDate: new Date().toDateString(),
             nextDose: calculateNextDose(med.time)
         };
-        // Gọi API
-        await reminderService.updateReminder(id, updatedMed).catch(console.error);
+        // await reminderService.updateReminder(id, updatedMed).catch(console.error);
 
         setMedications(meds => meds.map(m => m.id === id ? updatedMed : m));
         toast({
@@ -239,11 +267,6 @@ try {
           className: "bg-green-600 text-white border-none"
         });
     }
-  };
-
-  // Helper check xem hôm nay đã uống chưa để render UI
-  const isTakenToday = (med: Medication) => {
-      return med.lastTakenDate === new Date().toDateString();
   };
 
   return (
@@ -269,7 +292,6 @@ try {
             </p>
           </div>
 
-          {/* Today's Medications */}
           <Card className="mb-6 border-0 shadow-elegant">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -279,18 +301,16 @@ try {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {medications.filter(med => med.isActive).map((medication) => {
-                  const taken = isTakenToday(medication);
+                {medications.filter(shouldShowToday).map((medication) => {
                   return (
-                    <div key={medication.id} className={`flex items-center justify-between p-4 rounded-lg border ${taken ? 'bg-green-50 border-green-200' : 'bg-white'}`}>
+                    <div key={medication.id} className={`flex items-center justify-between p-4 rounded-lg border bg-white`}>
                         <div className="flex items-center gap-4">
-                        <div className={`p-2 rounded-full ${taken ? 'bg-green-100' : 'bg-blue-100'}`}>
-                            <Pill className={taken ? 'text-green-600' : 'text-blue-600'} size={20} />
+                        <div className={`p-2 rounded-full bg-blue-100`}>
+                            <Pill className={'text-blue-600'} size={20} />
                         </div>
                         <div>
                             <div className="flex items-center gap-2">
                                 <h3 className="font-semibold text-foreground">{medication.name}</h3>
-                                {taken && <Badge className="bg-green-600">Đã uống</Badge>}
                             </div>
                             <p className="text-sm text-muted-foreground">
                             {medication.dosage} • {frequencies.find(f => f.value === medication.frequency)?.label}
@@ -302,34 +322,28 @@ try {
                         </div>
                         </div>
                         
-                        {!taken ? (
-                            <Button
-                            size="sm"
-                            onClick={() => markAsTaken(medication.id)}
-                            className="flex items-center gap-2"
-                            >
-                            <CheckCircle2 size={16} />
-                            Xác nhận
-                            </Button>
-                        ) : (
-                            <Button variant="ghost" disabled className="text-green-600">
-                                <CheckCircle2 size={16} className="mr-1"/> Hoàn thành
-                            </Button>
-                        )}
+                        <Button
+                        size="sm"
+                        onClick={() => markAsTaken(medication.id)}
+                        className="flex items-center gap-2"
+                        >
+                        <CheckCircle2 size={16} />
+                        Xác nhận
+                        </Button>
                     </div>
                   );
                 })}
-                {medications.filter(med => med.isActive).length === 0 && (
+                
+                {medications.filter(shouldShowToday).length === 0 && (
                   <div className="text-center py-8 text-muted-foreground">
                     <Pill size={48} className="mx-auto mb-4 opacity-50" />
-                    <p>Chưa có thuốc nào được thiết lập nhắc nhở</p>
+                    <p>Không có thuốc cần uống hoặc bạn đã uống hết thuốc hôm nay</p>
                   </div>
                 )}
               </div>
             </CardContent>
           </Card>
 
-          {/* All Medications */}
           <Card className="mb-6 border-0 shadow-elegant">
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -381,7 +395,6 @@ try {
             </CardContent>
           </Card>
 
-          {/* Add Medication Form */}
           {showForm && (
             <Card className="border-0 shadow-elegant">
               <CardHeader>
@@ -444,7 +457,6 @@ try {
                         )}
                       />
 
-                    {/* THAY ĐỔI Ở ĐÂY: Dùng .map để render nhiều ô nhập giờ dựa trên mảng times */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         {form.watch("times").map((_, index) => (
                             <FormField key={index} control={form.control} name={`times.${index}`} render={({ field }) => (
@@ -499,7 +511,6 @@ try {
             </Card>
           )}
 
-          {/* Statistics */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
             <Card className="border-0 bg-success/5">
               <CardContent className="p-6 text-center">
@@ -527,5 +538,5 @@ try {
     </div>
   );
 };
-}
+
 export default MedicationReminder;
