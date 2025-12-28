@@ -49,7 +49,11 @@ export interface TicketResponse {
 interface ApiResponse<T> {
     success: boolean;
     data: T;
-    error?: string;
+    error?: {
+        message: string;
+        code?: string;
+        details?: any;
+    };
 }
 
 export class QueueService {
@@ -58,10 +62,13 @@ export class QueueService {
         options: RequestInit = {}
     ): Promise<T> {
         const url = `${API_BASE_URL}${endpoint}`;
+        const idToken = localStorage.getItem("idToken");
+
         const config: RequestInit = {
             ...options,
             headers: {
                 "Content-Type": "application/json",
+                ...(idToken && { Authorization: `Bearer ${idToken}` }),
                 ...options.headers,
             },
         };

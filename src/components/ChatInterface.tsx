@@ -10,6 +10,8 @@ import { useChat } from "@/hooks/useChat";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { checkQueueQuery, getQueueResponse } from "@/utils/queueChatbot";
+import urlBase64ToUint8Array from "@/utils/convertToIntArray";
+import { ReminderService } from "@/services/reminder";
 
 interface Message {
     id: string;
@@ -19,10 +21,107 @@ interface Message {
     billData?: any;
 }
 
+/* =========================
+   🔍 REMINDER HELPERS
+========================= */
+
+const checkReminderQuery = (text: string) => {
+    const keywords = [
+        "nhắc uống thuốc",
+        "nhắc thuốc",
+        "uống thuốc",
+        "nhắc tôi uống thuốc",
+        "remind",
+        "reminder",
+    ];
+    return keywords.some((k) => text.toLowerCase().includes(k));
+};
+
+/**
+ * ✅ PARSE TIME – FIX SÁNG / TỐI / TIMEZONE
+ */
+const parseNotifyTimeFromText = (text: string): Date | null => {
+    const now = new Date();
+    const lower = text.toLowerCase();
+
+    /* sau X phút */
+    const afterMatch = lower.match(/sau\s+(\d+)\s*phút/);
+    if (afterMatch) {
+        const d = new Date(now);
+        d.setMinutes(d.getMinutes() + Number(afterMatch[1]));
+        return d;
+    }
+
+    /* HH:mm | Hh */
+    const timeMatch = lower.match(/(\d{1,2})(?:[:h](\d{1,2}))?/);
+    if (timeMatch) {
+        let hour = Number(timeMatch[1]);
+        const minute = timeMatch[2] ? Number(timeMatch[2]) : 0;
+
+        const isPM = /(tối|chiều|đêm|pm)/i.test(lower);
+        const isAM = /(sáng|am)/i.test(lower);
+
+        if (isPM && hour < 12) hour += 12;
+        if (isAM && hour === 12) hour = 0;
+
+        const d = new Date(now);
+        d.setHours(hour, minute, 0, 0);
+
+        // nếu giờ đã qua → ngày mai
+        if (d.getTime() <= now.getTime()) {
+            d.setDate(d.getDate() + 1);
+        }
+
+        return d;
+    }
+
+    /* fallback mơ hồ */
+    if (lower.includes("tối nay")) {
+        const d = new Date(now);
+        d.setHours(21, 0, 0, 0);
+        return d;
+    }
+
+    if (lower.includes("sáng mai")) {
+        const d = new Date(now);
+        d.setDate(d.getDate() + 1);
+        d.setHours(7, 0, 0, 0);
+        return d;
+    }
+
+    if (lower.includes("ngày mai")) {
+        const d = new Date(now);
+        d.setDate(d.getDate() + 1);
+        d.setHours(8, 0, 0, 0);
+        return d;
+    }
+
+    return null;
+};
+
+const formatLocalISO = (date: Date) => {
+    const pad = (n: number) => String(n).padStart(2, "0");
+
+    const year = date.getFullYear();
+    const month = pad(date.getMonth() + 1);
+    const day = pad(date.getDate());
+    const hour = pad(date.getHours());
+    const minute = pad(date.getMinutes());
+    const second = pad(date.getSeconds());
+
+    // VN = GMT+7
+    return `${year}-${month}-${day}T${hour}:${minute}:${second}.000Z`;
+};
+
+
 const ChatInterface = () => {
     const [inputMessage, setInputMessage] = useState("");
     const [queueContext, setQueueContext] = useState<any>({});
 
+    const [reminderFlow, setReminderFlow] = useState({
+        waitingForTime: false,
+    });
+    const reminderService = new ReminderService();
     const {
         messages,
         loading: isLoading,
@@ -55,6 +154,56 @@ const ChatInterface = () => {
         });
     }, [messages, isLoading]);
 
+    const createReminder = async (notifyAt: Date) => {
+        try {
+            const permission = await Notification.requestPermission();
+            if (permission !== "granted") {
+                addBotMessage("⚠️ Bạn cần cho phép thông báo.");
+                return;
+            }
+
+            const registration = await navigator.serviceWorker.register("/sw.js");
+
+            const subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(
+                    import.meta.env.VITE_VAPID_PUBLIC_KEY
+                ),
+            });
+
+            await reminderService.createReminder({
+                endpoint: subscription.endpoint,
+                keys: {
+                    p256dh: btoa(
+                        String.fromCharCode(
+                            ...new Uint8Array(subscription.getKey("p256dh")!)
+                        )
+                    ),
+                    auth: btoa(
+                        String.fromCharCode(
+                            ...new Uint8Array(subscription.getKey("auth")!)
+                        )
+                    ),
+                },
+                // 🔥 UTC ISO – ĐÚNG
+                notifyAt: formatLocalISO(notifyAt),
+            });
+
+            addBotMessage(
+                `✅ Đã đặt nhắc uống thuốc lúc **${notifyAt.toLocaleString("vi-VN", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    day: "2-digit",
+                    month: "2-digit",
+                })}**`
+            );
+        } catch (e) {
+            console.error(e);
+            addBotMessage("❌ Có lỗi khi đặt nhắc uống thuốc.");
+        }
+    };
+
+
     const handleSendMessage = async () => {
         if (!inputMessage.trim()) return;
 
@@ -64,6 +213,34 @@ const ChatInterface = () => {
         const isQueueQuery = checkQueueQuery(trimmedMessage);
 
         setInputMessage("");
+
+        if (reminderFlow.waitingForTime) {
+            addUserMessage(trimmedMessage);
+            const notifyAt = parseNotifyTimeFromText(trimmedMessage);
+
+            if (!notifyAt) {
+                addBotMessage("⏰ Ví dụ: *11h32 tối*, *8h sáng*, *sau 15 phút*");
+                return;
+            }
+
+            await createReminder(notifyAt);
+            setReminderFlow({ waitingForTime: false });
+            return;
+        }
+
+        if (checkReminderQuery(trimmedMessage)) {
+            addUserMessage(trimmedMessage);
+            const notifyAt = parseNotifyTimeFromText(trimmedMessage);
+
+            if (!notifyAt) {
+                addBotMessage("⏰ Bạn muốn tôi nhắc lúc mấy giờ?");
+                setReminderFlow({ waitingForTime: true });
+                return;
+            }
+
+            await createReminder(notifyAt);
+            return;
+        }
 
         if (isBillingQuery) {
             addUserMessage(trimmedMessage);

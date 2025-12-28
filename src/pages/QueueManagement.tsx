@@ -185,7 +185,7 @@ const QueueManagement = () => {
         if (activeView === "status" && currentTicket) {
             interval = setInterval(() => {
                 handleGetStatus(currentTicket.queueType);
-            }, 120000);
+            }, 60000);
         }
 
         return () => {
@@ -493,10 +493,14 @@ const QueueManagement = () => {
                                                 <div className="flex items-center gap-2 ml-2 pl-3 border-l border-white/70">
                                                     <RefreshCw
                                                         size={16}
-                                                        className="text-white/90"
+                                                        className="text-yellow-300"
                                                     />
-                                                    <span className="text-[15px] font-medium text-white/90">
-                                                        Đổi
+                                                    <span className="text-[15px] font-medium text-yellow-300">
+                                                        Đổi sang{" "}
+                                                        {currentTicket.queueType ===
+                                                        "BHYT"
+                                                            ? "DV"
+                                                            : "BHYT"}
                                                     </span>
                                                 </div>
                                             </button>
@@ -536,7 +540,7 @@ const QueueManagement = () => {
                                                             ? "bg-green-400 animate-pulse"
                                                             : currentTicket.ticketStatus ===
                                                               "WAITING"
-                                                            ? "bg-blue-300"
+                                                            ? "bg-yellow-400"
                                                             : "bg-gray-400"
                                                     }`}
                                                 />
@@ -562,20 +566,35 @@ const QueueManagement = () => {
                                                         size={20}
                                                     />
                                                 </div>
-                                                <div>
-                                                    <p className="text-[14px] font-medium text-muted-foreground mb-0.5">
-                                                        Đang gọi số
-                                                    </p>
-                                                    <p className="text-2xl font-bold text-primary">
-                                                        {getQueueTypeShort(
-                                                            currentTicket.queueType
-                                                        )}
-                                                        -
-                                                        {currentTicket.currentNumber
-                                                            .toString()
-                                                            .padStart(3, "0")}
-                                                    </p>
-                                                </div>
+                                                {currentTicket.currentNumber
+                                                    .toString()
+                                                    .padStart(3, "0") ===
+                                                "000" ? (
+                                                    <div>
+                                                        <p className="text-[15px] font-medium text-primary mb-0.5">
+                                                            Chưa có số nào được
+                                                            gọi
+                                                        </p>
+                                                    </div>
+                                                ) : (
+                                                    <div>
+                                                        <p className="text-[14px] font-medium text-muted-foreground mb-0.5">
+                                                            Đang gọi số
+                                                        </p>
+                                                        <p className="text-2xl font-bold text-primary">
+                                                            {getQueueTypeShort(
+                                                                currentTicket.queueType
+                                                            )}
+                                                            -
+                                                            {currentTicket.currentNumber
+                                                                .toString()
+                                                                .padStart(
+                                                                    3,
+                                                                    "0"
+                                                                )}
+                                                        </p>
+                                                    </div>
+                                                )}
                                             </div>
                                             <ChevronRight
                                                 className="text-primary/50"
@@ -596,8 +615,8 @@ const QueueManagement = () => {
                                                             className="text-primary"
                                                         />
                                                     </div>
-                                                    <p className="text-xs font-semibold text-muted-foreground">
-                                                        Người chờ
+                                                    <p className="text-sm font-semibold text-muted-foreground">
+                                                        Người chờ trước bạn
                                                     </p>
                                                 </div>
                                                 <p className="text-3xl font-bold text-primary">
@@ -614,7 +633,7 @@ const QueueManagement = () => {
                                                             className="text-primary"
                                                         />
                                                     </div>
-                                                    <p className="text-xs font-semibold text-muted-foreground">
+                                                    <p className="text-sm font-semibold text-muted-foreground">
                                                         Thời gian
                                                     </p>
                                                 </div>

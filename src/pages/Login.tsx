@@ -7,10 +7,12 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useNavigate } from "react-router-dom";
 import { AuthService } from "@/services/auth";
 import { jwtDecode } from "jwt-decode";
+import { useToast } from "@/hooks/use-toast";
 
 const Login = () => {
   const authService = new AuthService()
-  
+  const { toast } = useToast();
+
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     email: "",
@@ -25,19 +27,27 @@ const Login = () => {
         password: formData.password,
       });
 
-      if(response.status == 200) {
+      if (response.status == 200) {
         // Handle successful login, e.g., store tokens, redirect, etc.
         localStorage.setItem("accessToken", response.data.accessToken);
         localStorage.setItem("idToken", response.data.idToken);
         let decoded = jwtDecode(response.data.idToken)
         console.log("decoded", decoded)
         localStorage.setItem("userName", decoded["name"])
-
+        toast({
+          title: "Đăng nhập thành công",
+          variant: "default",
+        });
         navigate("/");
       }
       console.log("Login form submitted:", response);
     } catch (error) {
       console.error("Error logging in:", error);
+      toast({
+          title: "Đăng nhập thất bại",
+          description: error.message || "Email hoặc mật khẩu không đúng.",
+          variant: "destructive",
+        });
     }
   };
 

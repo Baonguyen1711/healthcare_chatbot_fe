@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { createItem, getAll } from './base';
 import { BILLING_ENDPOINTS } from '../types/Endpoint/billing';
-import { LatestBillResponse } from '@/types/Response/Billing';
+import { LatestBillResponse, TransactionHistoryResponse } from '@/types/Response/Billing';
 
 // Hardcoded base URL - thay đổi URL này nếu cần
 const BILLING_BASE_URL = "https://v04jpxqxm3.execute-api.us-east-1.amazonaws.com/dev";
@@ -31,6 +31,80 @@ export class BillingService {
                     "Content-Type": "application/json",
                     ...(token ? { Authorization: `Bearer ${token}` } : {}),
                 },
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+
+            if (!res.ok) {
+                const error = await res.json().catch(() => ({}));
+                throw new Error(error.message || `Lỗi server: ${res.status}`);
+            }
+
+            const data = await res.json();
+            return { data, status: res.status };
+        } catch (error: any) {
+            if (error.name === 'AbortError') {
+                throw new Error("Kết nối quá thời gian chờ (Timeout). Vui lòng thử lại.");
+            }
+            throw error;
+        }
+    };
+
+    /**
+     * Lấy lịch sử giao dịch của user
+     * Backend sẽ tự động lấy userId từ JWT token
+     * @returns Promise với danh sách lịch sử giao dịch
+     */
+    getTransactionHistory = async () => {
+        const token = (localStorage.getItem("idToken") ?? "").trim();
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+        try {
+            const res = await fetch(`${this.baseUrl}${BILLING_ENDPOINTS.GET_TRANSACTION_HISTORY}`, {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json",
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+
+            if (!res.ok) {
+                const error = await res.json().catch(() => ({}));
+                throw new Error(error.message || `Lỗi server: ${res.status}`);
+            }
+
+            const data = await res.json();
+            return { data, status: res.status };
+        } catch (error: any) {
+            if (error.name === 'AbortError') {
+                throw new Error("Kết nối quá thời gian chờ (Timeout). Vui lòng thử lại.");
+            }
+            throw error;
+        }
+    };
+
+    /**
+     * Cập nhật trạng thái thanh toán
+     * @param visitId - ID của lần khám
+     * @param paymentStatus - Trạng thái thanh toán mới (PAID, PENDING, CANCELLED)
+     * @param paymentMethod - Phương thức thanh toán (CASH, CARD, TRANSFER)
+     */
+    updatePaymentStatus = async (visitId: string, paymentStatus: string, paymentMethod?: string) => {
+        const token = (localStorage.getItem("idToken") ?? "").trim();
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+        try {
+            const res = await fetch(`${this.baseUrl}${BILLING_ENDPOINTS.UPDATE_PAYMENT_STATUS}`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+                body: JSON.stringify({ visitId, paymentStatus, paymentMethod }),
                 signal: controller.signal
             });
             clearTimeout(timeoutId);
