@@ -90,7 +90,7 @@ const getPushSubscriptionData = async () => {
   const subscription = await registration.pushManager.subscribe({
     userVisibleOnly: true,
     applicationServerKey: urlBase64ToUint8Array(
-      import.meta.env.VITE_VAPID_PUBLIC_KEY
+      "BNVa9eamj2vCqU2tnl58f56XvIs02nnwPzqUGqshhQQlYCqVf9XCOI5ayomr2EvCfC21Gt38O_zNXojLD5vmeF4"
     ),
   });
 

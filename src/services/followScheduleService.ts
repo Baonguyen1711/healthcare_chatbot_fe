@@ -41,7 +41,7 @@ export class FollowScheduleService {
     let subscription = await registration.pushManager.getSubscription();
 
     if (!subscription) {
-      const publicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+      const publicKey = "BNVa9eamj2vCqU2tnl58f56XvIs02nnwPzqUGqshhQQlYCqVf9XCOI5ayomr2EvCfC21Gt38O_zNXojLD5vmeF4";
       if (!publicKey) return null; 
 
       subscription = await registration.pushManager.subscribe({
