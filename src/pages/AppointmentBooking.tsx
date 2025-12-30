@@ -36,7 +36,16 @@ import { Badge } from "@/components/ui/badge";
 import { addDays, format } from "date-fns";
 import { vi } from "date-fns/locale";
 
-import { getHospitals,getDepartmentsByHospital,getDoctorsByDepartment,getDoctorSchedule,bookAppointment } from "../services/appointment-service";
+import {
+  getHospitals,
+  getDepartmentsByHospital,
+  getDoctorsByDepartment,
+  getDoctorSchedule,
+  bookAppointment,
+  getAppointmentsByUser,
+  getDoctorById,
+  getHospitalById,
+} from "../services/appointment-service";
 import { v4 as uuidv4 } from "uuid";
 // 🧾 Validation schema
 const appointmentSchema = z.object({
@@ -99,6 +108,142 @@ interface ScheduleByDate {
   slots: string[];
 }
 
+interface UserAppointment {
+  id: string;
+  appointmentId?: string;
+  doctorId?: string;
+  hospitalId?: string;
+  hospitalName?: string;
+  departmentName?: string;
+  doctorName?: string;
+  date?: string;
+  time?: string;
+  status?: string;
+}
+
+const normalizeUserAppointments = (payload: any): UserAppointment[] => {
+  const rawList = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.data)
+    ? payload.data
+    : Array.isArray(payload?.appointments)
+    ? payload.appointments
+    : [];
+
+  return rawList.map((item: any, index: number) => ({
+    id: String(
+      item?.appointmentId ?? item?.id ?? item?._id ?? `user-appt-${index}`
+    ),
+    appointmentId: item?.appointmentId ?? item?.id ?? item?._id,
+    doctorId: item?.doctorId ?? item?.doctor?.doctorId ?? item?.doctor?.id,
+    hospitalId:
+      item?.hospitalId ?? item?.hospital?.hospitalId ?? item?.hospital?.id,
+    hospitalName:
+      item?.hospitalName ??
+      item?.hospital?.name ??
+      item?.hospital?.hospitalName,
+    departmentName:
+      item?.departmentName ??
+      item?.department?.name ??
+      item?.department?.departmentName,
+    doctorName: item?.doctorName ?? item?.doctor?.name,
+    date: item?.date ?? item?.appointmentDate ?? item?.bookedDate,
+    time: item?.time ?? item?.appointmentTime ?? item?.bookedTime,
+    status: item?.status ?? item?.appointmentStatus ?? item?.state,
+  }));
+};
+
+const extractDoctorName = (payload: any): string | undefined => {
+  if (!payload) return undefined;
+  const source = payload?.doctor ?? payload?.data ?? payload?.result ?? payload;
+  return (
+    source?.name ??
+    source?.doctorName ??
+    source?.fullName ??
+    payload?.name ??
+    payload?.doctorName
+  );
+};
+
+const extractHospitalName = (payload: any): string | undefined => {
+  if (!payload) return undefined;
+  const source =
+    payload?.hospital ?? payload?.data ?? payload?.result ?? payload;
+  return (
+    source?.name ??
+    source?.hospitalName ??
+    source?.fullName ??
+    payload?.name ??
+    payload?.hospitalName
+  );
+};
+
+const buildDetailMap = async (
+  ids: string[],
+  fetcher: (id: string) => Promise<any>,
+  extractor: (payload: any) => string | undefined,
+  label: string
+) => {
+  if (!ids.length) {
+    return new Map<string, string | undefined>();
+  }
+
+  const entries = await Promise.all(
+    ids.map(async (id) => {
+      try {
+        const payload = await fetcher(id);
+        return [id, extractor(payload)] as const;
+      } catch (error) {
+        console.error(`Không thể lấy thông tin ${label} ${id}:`, error);
+        return [id, undefined] as const;
+      }
+    })
+  );
+
+  return new Map(entries);
+};
+
+const enrichAppointmentsWithDetails = async (
+  appointments: UserAppointment[]
+): Promise<UserAppointment[]> => {
+  const doctorIds = Array.from(
+    new Set(
+      appointments
+        .map((appointment) => appointment.doctorId)
+        .filter((id): id is string => Boolean(id))
+    )
+  );
+  const hospitalIds = Array.from(
+    new Set(
+      appointments
+        .map((appointment) => appointment.hospitalId)
+        .filter((id): id is string => Boolean(id))
+    )
+  );
+
+  const [doctorMap, hospitalMap] = await Promise.all([
+    buildDetailMap(doctorIds, getDoctorById, extractDoctorName, "bác sĩ"),
+    buildDetailMap(
+      hospitalIds,
+      getHospitalById,
+      extractHospitalName,
+      "bệnh viện"
+    ),
+  ]);
+
+  return appointments.map((appointment) => ({
+    ...appointment,
+    doctorName:
+      appointment.doctorName ??
+      (appointment.doctorId ? doctorMap.get(appointment.doctorId) : undefined),
+    hospitalName:
+      appointment.hospitalName ??
+      (appointment.hospitalId
+        ? hospitalMap.get(appointment.hospitalId)
+        : undefined),
+  }));
+};
+
 const AppointmentBooking = () => {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [selectedHospital, setSelectedHospital] = useState<string>("");
@@ -111,6 +256,13 @@ const AppointmentBooking = () => {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [schedule, setSchedule] = useState<DoctorSchedule | null>(null);
   const [scheduleWeek, setScheduleWeek] = useState<ScheduleByDate[]>([]);
+  const [userAppointments, setUserAppointments] = useState<UserAppointment[]>(
+    []
+  );
+  const [userAppointmentsLoading, setUserAppointmentsLoading] = useState(false);
+  const [userAppointmentsError, setUserAppointmentsError] = useState<
+    string | null
+  >(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -123,7 +275,7 @@ const AppointmentBooking = () => {
           address: item.address,
           departments: [],
         }));
-        console.log('dâd',data)
+        console.log("dâd", data);
         setHospitals(hospitalData); // 👉 res nên là mảng [{id, name, ...}]
       } catch (err) {
         console.error("Lỗi khi fetch hospitals:", err);
@@ -133,7 +285,48 @@ const AppointmentBooking = () => {
     fetchHospitals();
   }, []);
 
+  useEffect(() => {
+    const token = (localStorage.getItem("accessToken") ?? "").trim();
+    if (!token) {
+      setUserAppointments([]);
+      setUserAppointmentsError("Bạn cần đăng nhập để xem lịch đã đặt.");
+      return;
+    }
 
+    let isMounted = true;
+    const fetchUserAppointments = async () => {
+      setUserAppointmentsLoading(true);
+      setUserAppointmentsError(null);
+
+      try {
+        const data = await getAppointmentsByUser();
+        if (!isMounted) return;
+        const normalized = normalizeUserAppointments(data);
+        const enriched = await enrichAppointmentsWithDetails(normalized);
+        if (!isMounted) return;
+        setUserAppointments(enriched);
+      } catch (error) {
+        if (!isMounted) return;
+        console.error("Lỗi khi fetch lịch hẹn của user:", error);
+        setUserAppointments([]);
+        setUserAppointmentsError(
+          error instanceof Error
+            ? error.message
+            : "Không thể tải lịch hẹn của bạn."
+        );
+      } finally {
+        if (isMounted) {
+          setUserAppointmentsLoading(false);
+        }
+      }
+    };
+
+    fetchUserAppointments();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!selectedHospital) {
@@ -142,7 +335,7 @@ const AppointmentBooking = () => {
       setSelectedDoctor("");
       return;
     }
-  
+
     const fetchDepartments = async () => {
       try {
         const data = await getDepartmentsByHospital(selectedHospital);
@@ -152,14 +345,14 @@ const AppointmentBooking = () => {
           hospitalId: item.hospitalId,
           doctors: [],
         }));
-        console.log(departmentData)
+        console.log(departmentData);
         setDepartments(departmentData); // ✅ res nên là array [{id, name, ...}]
       } catch (err) {
         console.error("Lỗi khi fetch departments:", err);
         setDepartments([]); // clear khi lỗi
       }
     };
-  
+
     fetchDepartments();
   }, [selectedHospital]);
 
@@ -168,15 +361,15 @@ const AppointmentBooking = () => {
       setDoctors([]); // clear khi chưa chọn khoa
       return;
     }
-  
+
     const fetchDoctors = async () => {
       try {
         const data = await getDoctorsByDepartment(selectedDepartment);
-        console.log(data)
+        console.log(data);
         const doctorData: Doctor[] = data.map((item: any) => ({
           id: item.doctorId,
           name: item.name,
-          hospitalId: item.hospitalId
+          hospitalId: item.hospitalId,
         }));
         setDoctors(doctorData);
       } catch (err) {
@@ -184,7 +377,7 @@ const AppointmentBooking = () => {
         setDoctors([]); // clear khi lỗi
       }
     };
-  
+
     fetchDoctors();
   }, [selectedDepartment]);
 
@@ -193,16 +386,16 @@ const AppointmentBooking = () => {
       setScheduleWeek([]);
       return;
     }
-  
+
     const fetchScheduleWeek = async () => {
       try {
         const today = new Date();
         const schedules: ScheduleByDate[] = [];
-  
+
         for (let i = 1; i <= 2; i++) {
           const day = addDays(today, i);
           const dateStr = format(day, "yyyy-MM-dd");
-  
+
           try {
             const data = await getDoctorSchedule(selectedDoctor, dateStr);
             schedules.push({
@@ -217,17 +410,16 @@ const AppointmentBooking = () => {
             });
           }
         }
-  
+
         setScheduleWeek(schedules);
       } catch (error) {
         console.error("❌ Lỗi khi fetch lịch tuần:", error);
         setScheduleWeek([]);
       }
     };
-  
+
     fetchScheduleWeek();
   }, [selectedDoctor]);
-  
 
   const form = useForm<AppointmentForm>({
     resolver: zodResolver(appointmentSchema),
@@ -285,18 +477,21 @@ const AppointmentBooking = () => {
         time: data.time,
         symptoms: data.symptoms || "",
       };
-  
+
       console.log("📤 Payload gửi đi:", payload);
       // 👉 Gọi API tạo lịch hẹn
       const res = await bookAppointment(payload);
-      console.log(res)
+      console.log(res);
       console.log("✅ Tạo lịch thành công:", res);
-  
+
       toast({
         title: "Đặt lịch thành công!",
-        description: `Lịch hẹn đã được xác nhận cho ${format(new Date(data.date), "dd/MM/yyyy")} lúc ${data.time}.`,
+        description: `Lịch hẹn đã được xác nhận cho ${format(
+          new Date(data.date),
+          "dd/MM/yyyy"
+        )} lúc ${data.time}.`,
       });
-  
+
       setIsSubmitted(true);
     } catch (error) {
       console.error("❌ Lỗi khi tạo lịch hẹn:", error);
@@ -306,6 +501,28 @@ const AppointmentBooking = () => {
         variant: "destructive",
       });
     }
+  };
+
+  const formatAppointmentDate = (dateStr?: string) => {
+    if (!dateStr) return "Chưa cập nhật";
+    try {
+      return format(new Date(dateStr), "dd/MM/yyyy", { locale: vi });
+    } catch (error) {
+      console.warn("Không thể format ngày lịch hẹn:", error);
+      return dateStr;
+    }
+  };
+
+  const formatAppointmentTime = (timeStr?: string) => timeStr ?? "--:--";
+
+  const getStatusBadgeVariant = (status?: string) => {
+    if (!status) return "secondary";
+    const normalized = status.toLowerCase();
+    if (normalized.includes("cancel")) return "destructive" as const;
+    if (normalized.includes("confirm") || normalized.includes("success")) {
+      return "default" as const;
+    }
+    return "secondary" as const;
   };
 
   if (isSubmitted) {
@@ -362,6 +579,77 @@ const AppointmentBooking = () => {
               Đặt lịch khám với bác sĩ chuyên khoa nhanh chóng và tiện lợi
             </p>
           </div>
+
+          <Card className="border-0 shadow-elegant mb-8">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="text-primary" size={24} />
+                Lịch hẹn của bạn
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {userAppointmentsLoading ? (
+                <div className="space-y-3">
+                  {[0, 1, 2].map((index) => (
+                    <div
+                      key={`appointment-skeleton-${index}`}
+                      className="h-16 w-full rounded-lg bg-muted animate-pulse"
+                    />
+                  ))}
+                </div>
+              ) : userAppointmentsError ? (
+                <p className="text-sm text-muted-foreground">
+                  {userAppointmentsError}
+                </p>
+              ) : userAppointments.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Bạn chưa có lịch hẹn nào. Hãy đặt lịch ngay bên dưới nhé!
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {userAppointments.map((appointment) => (
+                    <div
+                      key={appointment.id}
+                      className="rounded-lg border p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
+                    >
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                          {appointment.hospitalName ||
+                            "Bệnh viện chưa cập nhật"}
+                        </p>
+                        <p className="text-base font-semibold text-foreground">
+                          {appointment.doctorName || "Chưa rõ bác sĩ"}
+                        </p>
+                        {appointment.departmentName && (
+                          <p className="text-sm text-muted-foreground">
+                            {appointment.departmentName}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex flex-col items-start gap-2 md:items-end">
+                        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                          <Calendar size={16} className="text-primary" />
+                          {formatAppointmentDate(appointment.date)}
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-foreground">
+                          <Clock size={16} className="text-primary" />
+                          {formatAppointmentTime(appointment.time)}
+                        </div>
+                        {appointment.status && (
+                          <Badge
+                            variant={getStatusBadgeVariant(appointment.status)}
+                            className="uppercase"
+                          >
+                            {appointment.status}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           <Card className="border-0 shadow-elegant">
             <CardHeader>
@@ -507,7 +795,7 @@ const AppointmentBooking = () => {
                       <CardHeader>
                         <CardTitle className="text-base flex items-center gap-2">
                           <Calendar size={18} className="text-primary" />
-                          Lịch trống trong tuần 
+                          Lịch trống trong tuần
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
@@ -544,7 +832,8 @@ const AppointmentBooking = () => {
                                   <div className="flex flex-wrap gap-2">
                                     {scheduleDay.slots.map((time) => {
                                       const isSelected =
-                                        form.watch("date") === scheduleDay.date &&
+                                        form.watch("date") ===
+                                          scheduleDay.date &&
                                         form.watch("time") === time;
                                       return (
                                         <Button
@@ -556,7 +845,10 @@ const AppointmentBooking = () => {
                                           }
                                           className="h-8"
                                           onClick={() => {
-                                            form.setValue("date", scheduleDay.date);
+                                            form.setValue(
+                                              "date",
+                                              scheduleDay.date
+                                            );
                                             form.setValue("time", time);
                                           }}
                                         >
