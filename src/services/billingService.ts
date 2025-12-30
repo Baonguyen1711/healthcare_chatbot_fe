@@ -4,7 +4,7 @@ import { BILLING_ENDPOINTS } from '../types/Endpoint/billing';
 import { LatestBillResponse, TransactionHistoryResponse } from '@/types/Response/Billing';
 
 // Hardcoded base URL - thay đổi URL này nếu cần
-const BILLING_BASE_URL = "https://v04jpxqxm3.execute-api.us-east-1.amazonaws.com/dev";
+const BILLING_BASE_URL = "https://scwp69vdke.execute-api.us-east-1.amazonaws.com";
 
 
 export class BillingService {

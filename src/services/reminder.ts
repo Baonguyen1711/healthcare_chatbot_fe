@@ -7,7 +7,7 @@ export class ReminderService {
     private accessToken: string;
 
     constructor() {
-        this.baseUrl = import.meta.env.VITE_REMINDER_BASE_URL;
+        this.baseUrl = "https://scwp69vdke.execute-api.us-east-1.amazonaws.com";
         this.accessToken = (localStorage.getItem("accessToken") ?? "").replace(/\s+/g, "");
         console.log("this.accessToken",this.accessToken)
     }

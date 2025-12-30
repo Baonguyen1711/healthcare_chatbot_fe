@@ -1,4 +1,4 @@
-export const API_BASE = import.meta.env.VITE_APPOINTMENT_BASE_URL;
+export const API_BASE = "https://scwp69vdke.execute-api.us-east-1.amazonaws.com"
 export async function getHospitals() {
   const token = (localStorage.getItem("accessToken") ?? "").trim();
   const res = await fetch(`${API_BASE}/hospitals`, {

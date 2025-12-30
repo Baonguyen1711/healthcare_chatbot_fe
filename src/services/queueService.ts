@@ -1,5 +1,8 @@
 const QUEUE_API_BASE_URL =
     "https://e6q8bbkgy0.execute-api.us-east-1.amazonaws.com/dev";
+const API_BASE_URL =
+    "https://scwp69vdke.execute-api.us-east-1.amazonaws.com";
+
 
 // Types
 export type QueueType = "BHYT" | "DV";

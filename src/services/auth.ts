@@ -14,7 +14,7 @@ import { AUTH_ENDPOINTS } from "../types/Endpoint/auth";
 import { SignInResponse } from "@/types/Response/Auth";
 
 const AUTH_BASE_URL =
-  "https://hatq2x0ujg.execute-api.us-east-1.amazonaws.com/auth";
+  "https://scwp69vdke.execute-api.us-east-1.amazonaws.com/auth";
 console.log(AUTH_BASE_URL);
 export class AuthService {
   private baseUrl: string;
