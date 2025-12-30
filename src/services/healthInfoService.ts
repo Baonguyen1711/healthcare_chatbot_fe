@@ -1,4 +1,4 @@
-const API_BASE_URL = "https://scwp69vdke.execute-api.us-east-1.amazonaws.com";
+const API_BASE_URL = "https://jcf0kyq6ck.execute-api.us-east-1.amazonaws.com";
 
 export type Article = {
   id: string;

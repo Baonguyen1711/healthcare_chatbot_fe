@@ -1,11 +1,14 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { AuthService } from "@/services/auth";
+import { useToast } from "@/hooks/use-toast";
 
 const ConfirmForgotPassword = () => {
+  const authService = new AuthService()
   const [formData, setFormData] = useState({
     email: "",
     code: "",
@@ -13,9 +16,37 @@ const ConfirmForgotPassword = () => {
     confirmPassword: "",
   });
 
+  const { toast } = useToast();
+  const navigate = useNavigate();
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Logic will be implemented by user
+
+    const resetPassword = async () => {
+      try {
+        const response = await authService.confirmForgotPassword({
+          userName: formData.email,
+          confirmationCode: formData.code,
+          newPassword: formData.password,
+        });
+        if (response.status == 200) {
+          toast({
+            title: "Success",
+            description: "Your password has been reset successfully.",
+            variant: "default",
+          });
+          navigate("/login");
+        }
+      } catch (error) {
+        console.error("Error resetting password:", error);
+        toast({
+          title: "Error",
+          description: error.message || "Failed to reset password.",
+          variant: "destructive",
+        });
+      }
+    };
+
+    resetPassword();
     console.log("Reset password submitted:", formData);
   };
 

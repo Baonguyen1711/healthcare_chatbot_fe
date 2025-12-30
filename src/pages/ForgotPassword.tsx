@@ -4,13 +4,45 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { AuthService } from "@/services/auth";
+import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 
 const ForgotPassword = () => {
+  const authService = new AuthService()
+  const { toast } = useToast();
   const [email, setEmail] = useState("");
+  const navigate = useNavigate();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // Logic will be implemented by user
+    const getFortgotPassword = async () => {
+      try {
+        const response = await authService.forgotPassword({
+          userName: email,
+        });
+
+        if (response.status == 200) {
+          toast({
+            title: "Reset code sent",
+            description: "Please check your email for the reset code.",
+            variant: "default",
+          });
+
+          navigate("/confirm-forgot-password");
+        }
+      } catch (error) {
+        console.error("Error sending forgot password request:", error);
+        toast({
+          title: "Error",
+          description: error.message || "Failed to send reset code.",
+          variant: "destructive",
+        });
+      }
+    };
+
+    getFortgotPassword();
     console.log("Forgot password submitted:", email);
   };
 

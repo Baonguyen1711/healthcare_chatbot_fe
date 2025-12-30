@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { AuthService } from "@/services/auth";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { Loader2 } from "lucide-react";
 
 const Register = () => {
   const authService = new AuthService()
@@ -20,9 +21,12 @@ const Register = () => {
     password: "",
     confirmPassword: "",
   });
+  const [isLoading, setIsLoading] = useState(false);
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
     try {
 
       if (formData.password !== formData.confirmPassword) {
@@ -135,7 +139,8 @@ const Register = () => {
               />
             </div>
             <Button type="submit" className="w-full">
-              Register
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isLoading ? "Registering..." : "Register"}
             </Button>
           </form>
         </CardContent>

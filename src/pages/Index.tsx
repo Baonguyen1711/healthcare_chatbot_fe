@@ -58,7 +58,7 @@ const Index = () => {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-gradient-primary rounded-xl flex items-center justify-center shadow-soft">
-                  <Activity className="text-primary-foreground" size={24} />
+                  <img src="/healthcare_robot.jpg" alt="" />
                 </div>
                 <div>
                   <h1 className="text-xl font-bold text-foreground">

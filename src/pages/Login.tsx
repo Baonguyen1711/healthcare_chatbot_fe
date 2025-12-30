@@ -8,12 +8,16 @@ import { useNavigate } from "react-router-dom";
 import { AuthService } from "@/services/auth";
 import { jwtDecode } from "jwt-decode";
 import { useToast } from "@/hooks/use-toast";
+import { Loader2 } from "lucide-react";
+
 
 const Login = () => {
   const authService = new AuthService()
   const { toast } = useToast();
 
   const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(false);
+
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -21,6 +25,7 @@ const Login = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
     try {
       const response = await authService.signIn({
         userName: formData.email,
@@ -44,10 +49,10 @@ const Login = () => {
     } catch (error) {
       console.error("Error logging in:", error);
       toast({
-          title: "Đăng nhập thất bại",
-          description: error.message || "Email hoặc mật khẩu không đúng.",
-          variant: "destructive",
-        });
+        title: "Đăng nhập thất bại",
+        description: error.message || "Email hoặc mật khẩu không đúng.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -87,7 +92,8 @@ const Login = () => {
               />
             </div>
             <Button type="submit" className="w-full">
-              Login
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isLoading ? "Logging in..." : "Login"}
             </Button>
           </form>
         </CardContent>
