@@ -1,4 +1,4 @@
-const API_BASE_URL =
+const QUEUE_API_BASE_URL =
     "https://e6q8bbkgy0.execute-api.us-east-1.amazonaws.com/dev";
 
 // Types
@@ -61,7 +61,7 @@ export class QueueService {
         endpoint: string,
         options: RequestInit = {}
     ): Promise<T> {
-        const url = `${API_BASE_URL}${endpoint}`;
+        const url = `${QUEUE_API_BASE_URL}${endpoint}`;
         const idToken = localStorage.getItem("idToken");
 
         const config: RequestInit = {

@@ -1,4 +1,4 @@
-const API_BASE_URL =
+const FEEDBACK_API_BASE_URL =
     "https://x99agd36o1.execute-api.us-east-1.amazonaws.com/dev";
 
 // Types
@@ -65,7 +65,7 @@ export class FeedbackService {
         endpoint: string,
         options: RequestInit = {}
     ): Promise<T> {
-        const url = `${API_BASE_URL}${endpoint}`;
+        const url = `${FEEDBACK_API_BASE_URL}${endpoint}`;
         const token = localStorage.getItem("idToken");
 
         const config: RequestInit = {
