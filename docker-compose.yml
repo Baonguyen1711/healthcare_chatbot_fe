@@ -1,0 +1,10 @@
+version: "3.8"
+
+services:
+  frontend:
+    build: .
+    image: healthcare_chatbot
+    container_name: healthcare_chatbot
+    ports:
+      - "3000:80"
+    restart: always
